@@ -557,7 +557,7 @@ export default function App() {
         for (let i = 0; i < numScenesInPhase; i++) {
           const actionDescription = generateActionDescription(p.phase, i, numScenesInPhase, baseScenario);
 
-          const imagePrompt = `${STYLE_LOCK}\nScene ${id} (${p.phase}): ${actionDescription}. Distinct moment in the story. Tactile ASMR details (stone flaking, fire crackling). Photorealistic. No text, words, or logos.`;
+          const imagePrompt = `${STYLE_LOCK.replace(/\n/g, ' ')} ${actionDescription}. Distinct moment in the story. Tactile ASMR details (stone flaking, fire crackling). Photorealistic. No text, words, or logos.`;
           
           const videoPrompt = `Animate the image from Scene ${id}. Action: "${actionDescription}". Direct continuation of the still image, bringing it to life with subtle motion. Handheld camera (3-5% sway), focus breathing. Prehistoric ambient sounds only. Duration ${SCENE_DURATION_SECONDS}s. Family safe for monetization.`;
           
