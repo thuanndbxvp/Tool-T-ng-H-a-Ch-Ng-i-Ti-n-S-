@@ -1,0 +1,5 @@
+{
+  "name": "Copy of Tool Tự Động Hóa Chủ Đề Người Tiền Sử",
+  "description": "An advanced tool to generate detailed image and video prompts for creating prehistoric ASMR cinematic documentaries. Features character-locking with reference images, scenario-based prompt generation, and direct image creation with the Gemini API.",
+  "requestFramePermissions": []
+}
