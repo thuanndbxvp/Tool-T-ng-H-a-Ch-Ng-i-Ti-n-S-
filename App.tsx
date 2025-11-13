@@ -1,10 +1,9 @@
 
-import React, { useState, useRef, useCallback, FC, useMemo } from 'react';
+import React, { useState, useRef, useCallback, FC, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { generateImageFromPrompt } from './services/geminiService';
 
 // --- TYPES & CONSTANTS ---
-// FIX: Export the ImageFile interface so it can be imported in other files.
 export interface ImageFile {
   name: string;
   dataUrl: string;
@@ -24,6 +23,15 @@ interface ScenePrompt {
 interface Phase {
   phase: string;
   ratio: number;
+}
+
+// FIX: Export the ApiKey interface so it can be used across components.
+export interface ApiKey {
+    id: string;
+    provider: 'Google' | 'OpenAI';
+    key: string;
+    name: string;
+    isActive: boolean;
 }
 
 const PHASES: Phase[] = [
@@ -82,9 +90,15 @@ const SpinnerIcon: FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
-const CloseIcon: FC<{ className?: string }> = ({ className }) => (
+const KeyIcon: FC<{ className?: string }> = ({ className }) => (
     <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
+    </svg>
+);
+
+const TrashIcon: FC<{ className?: string }> = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.124-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.077-2.09.921-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
     </svg>
 );
 
@@ -287,39 +301,103 @@ const PromptDisplay: FC<PromptDisplayProps> = ({ prompts, onGenerateImage, onDow
     );
 };
 
-interface NotificationPopupProps {
-  onClose: () => void;
-}
+// --- API MODAL COMPONENT ---
 
-const NotificationPopup: FC<NotificationPopupProps> = ({ onClose }) => {
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4 animate-fade-in">
-      <div className="bg-slate-900 border border-emerald-500/50 p-8 rounded-2xl shadow-lg max-w-md w-full text-center relative">
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 text-slate-500 hover:text-white transition-colors p-1"
-          aria-label="Close notification"
-        >
-          <CloseIcon className="h-6 w-6" />
-        </button>
-        <h3 className="text-xl font-bold text-emerald-400 mb-4">
-          Cập Nhật Kiến Thức
-        </h3>
-        <p className="text-slate-300 mb-6">
-          Đừng quên cập nhập kiến thức và tài liệu tại đây.
-        </p>
-        <a
-          href="https://ndgroupvietnam.net/ndgroup-youtube-1usd-club"
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={onClose}
-          className="w-full py-3 px-4 rounded-md font-semibold text-black bg-emerald-500 hover:bg-emerald-400 transition-all inline-block"
-        >
-          THAM GIA TẠI ĐÂY
-        </a>
-      </div>
-    </div>
-  );
+interface ApiKeyModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    apiKeys: ApiKey[];
+    onAddKey: (provider: ApiKey['provider'], name: string, key: string) => void;
+    onDeleteKey: (id: string) => void;
+    onSetActiveKey: (id: string) => void;
+    selectedModel: string;
+    onSelectModel: (model: string) => void;
+}
+const ApiKeyModal: FC<ApiKeyModalProps> = ({ isOpen, onClose, apiKeys, onAddKey, onDeleteKey, onSetActiveKey, selectedModel, onSelectModel }) => {
+    const [newKeyName, setNewKeyName] = useState('');
+    const [newKeyValue, setNewKeyValue] = useState('');
+    const [activeProvider, setActiveProvider] = useState<ApiKey['provider']>('Google');
+
+    if (!isOpen) return null;
+
+    const handleAdd = () => {
+        if (newKeyName.trim() && newKeyValue.trim()) {
+            onAddKey(activeProvider, newKeyName, newKeyValue);
+            setNewKeyName('');
+            setNewKeyValue('');
+        }
+    };
+    
+    const maskKey = (key: string) => `${key.substring(0, 4)}...${key.substring(key.length - 4)}`;
+
+    const renderKeyList = (provider: ApiKey['provider']) => (
+        apiKeys.filter(k => k.provider === provider).map(key => (
+            <div key={key.id} className="flex items-center justify-between bg-slate-800 p-2 rounded-md">
+                <div className="flex flex-col text-sm">
+                    <span className="font-semibold text-white">{key.name}</span>
+                    <span className="text-slate-400 font-mono text-xs">{maskKey(key.key)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    {key.isActive ? (
+                        <span className="text-xs font-bold text-emerald-400 bg-emerald-900/50 px-2 py-1 rounded-full">ACTIVE</span>
+                    ) : (
+                        <button onClick={() => onSetActiveKey(key.id)} className="text-xs font-semibold text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded-md transition">Set Active</button>
+                    )}
+                    <button onClick={() => onDeleteKey(key.id)} className="text-slate-400 hover:text-red-500 p-1 rounded-md transition" aria-label="Delete key"><TrashIcon className="h-4 w-4" /></button>
+                </div>
+            </div>
+        ))
+    );
+    
+    return (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-fade-in">
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold text-emerald-400">API & Model Settings</h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white">&times;</button>
+                </div>
+
+                <div className="space-y-6">
+                    <div>
+                        <label htmlFor="model-select" className="block text-sm font-medium text-slate-300 mb-2">Active AI Model</label>
+                        <select
+                            id="model-select"
+                            value={selectedModel}
+                            onChange={(e) => onSelectModel(e.target.value)}
+                            className="w-full bg-slate-800 border border-slate-700 p-3 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+                        >
+                            <option value="gemini-2.5-flash-image">Gemini 2.5 Flash Image</option>
+                            <option value="gemini-2.5-pro" disabled>Gemini 2.5 Pro (Text only)</option>
+                            <option value="dall-e-3" disabled>DALL-E 3 (Coming Soon)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <div className="border-b border-slate-700 mb-4">
+                            <nav className="-mb-px flex space-x-4" aria-label="Tabs">
+                                <button onClick={() => setActiveProvider('Google')} className={`${activeProvider === 'Google' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-slate-400 hover:text-white hover:border-slate-500'} whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors`}>Google AI</button>
+                                <button onClick={() => setActiveProvider('OpenAI')} className={`${activeProvider === 'OpenAI' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-slate-400 hover:text-white hover:border-slate-500'} whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors`}>OpenAI</button>
+                            </nav>
+                        </div>
+                        
+                        <div className="space-y-3 p-1">
+                            <h3 className="text-lg font-semibold text-slate-200 mb-2">Add New {activeProvider} Key</h3>
+                             <div className="flex flex-col md:flex-row gap-2">
+                                <input type="text" placeholder="Nickname" value={newKeyName} onChange={e => setNewKeyName(e.target.value)} className="flex-grow bg-slate-800 border border-slate-700 p-2 rounded-md focus:ring-1 focus:ring-emerald-500 transition text-sm" />
+                                <input type="password" placeholder="API Key" value={newKeyValue} onChange={e => setNewKeyValue(e.target.value)} className="flex-grow bg-slate-800 border border-slate-700 p-2 rounded-md focus:ring-1 focus:ring-emerald-500 transition text-sm" />
+                                <button onClick={handleAdd} className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2 rounded-md transition text-sm">Add Key</button>
+                            </div>
+                        </div>
+
+                        <div className="mt-4 space-y-2">
+                             {renderKeyList(activeProvider)}
+                             {apiKeys.filter(k => k.provider === activeProvider).length === 0 && <p className="text-center text-slate-500 text-sm py-4">No {activeProvider} keys added yet.</p>}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 
@@ -332,22 +410,61 @@ export default function App() {
   const [prompts, setPrompts] = useState<ScenePrompt[]>([]);
   const [isBuilding, setIsBuilding] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isPopupVisible, setIsPopupVisible] = useState(false);
+  
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash-image');
 
-  React.useEffect(() => {
+  useEffect(() => {
     // This effect runs once on component mount.
-    
-    // Open the YouTube subscription link in a new tab.
     window.open('https://www.youtube.com/@ndgroupvietnam/?sub_confirmation=1', '_blank', 'noopener,noreferrer');
+    
+    // Load saved settings from localStorage
+    try {
+        const savedKeys = localStorage.getItem('apiKeys');
+        if (savedKeys) setApiKeys(JSON.parse(savedKeys));
+        const savedModel = localStorage.getItem('selectedModel');
+        if (savedModel) setSelectedModel(savedModel);
+    } catch (e) {
+        console.error("Failed to load settings from localStorage", e);
+    }
+  }, []); 
 
-    // Set up the interval for showing the notification popup.
-    const intervalId = setInterval(() => {
-        setIsPopupVisible(true);
-    }, 50000); // 50 seconds
+  const updateAndSaveKeys = (newKeys: ApiKey[]) => {
+    setApiKeys(newKeys);
+    localStorage.setItem('apiKeys', JSON.stringify(newKeys));
+  };
+  
+  const handleSelectModel = (model: string) => {
+    setSelectedModel(model);
+    localStorage.setItem('selectedModel', model);
+  }
 
-    // Cleanup the interval when the component unmounts.
-    return () => clearInterval(intervalId);
-  }, []); // The empty dependency array ensures this runs only once.
+  const handleAddKey = (provider: ApiKey['provider'], name: string, key: string) => {
+    const newKey: ApiKey = { id: crypto.randomUUID(), provider, name, key, isActive: false };
+    const providerKeys = apiKeys.filter(k => k.provider === provider);
+    if (providerKeys.length === 0) {
+        newKey.isActive = true;
+    }
+    updateAndSaveKeys([...apiKeys, newKey]);
+  };
+
+  const handleDeleteKey = (id: string) => {
+    updateAndSaveKeys(apiKeys.filter(k => k.id !== id));
+  };
+
+  const handleSetActiveKey = (id: string) => {
+    const keyToActivate = apiKeys.find(k => k.id === id);
+    if (!keyToActivate) return;
+    
+    const updatedKeys = apiKeys.map(k => {
+        if (k.provider === keyToActivate.provider) {
+            return { ...k, isActive: k.id === id };
+        }
+        return k;
+    });
+    updateAndSaveKeys(updatedKeys);
+  };
 
   const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
       if (!e.target.files) return;
@@ -356,7 +473,6 @@ export default function App() {
       setError(null);
 
       try {
-// FIX: Explicitly type `file` as `File` to resolve typing errors.
           const imagePromises = files.map(async (file: File) => {
               const { dataUrl, mimeType } = await fileToDataUrl(file);
               const base64 = dataUrlToBase64(dataUrl);
@@ -379,7 +495,6 @@ export default function App() {
         
         const worksheet = XLSX.utils.aoa_to_sheet([header, ...data]);
 
-        // Set column widths for better readability
         const columnWidths = [
             { wch: 5 },  // STT
             { wch: 15 }, // Phase
@@ -392,7 +507,6 @@ export default function App() {
         XLSX.utils.book_append_sheet(workbook, worksheet, "Prompts");
         XLSX.writeFile(workbook, "all-prompts.xlsx");
     } catch (err) {
-        // Silently fail on XLSX generation as requested. The error is logged for developers.
         console.error("Failed to generate XLSX file:", err);
     }
   }, []);
@@ -460,19 +574,27 @@ export default function App() {
   const handleGenerateImage = useCallback(async (sceneId: number) => {
     const promptToGenerate = prompts.find(p => p.id === sceneId);
     if (!promptToGenerate) return;
+    
+    const activeGoogleKey = apiKeys.find(k => k.provider === 'Google' && k.isActive);
+
+    if (!activeGoogleKey) {
+        setError("No active Google API key found. Please add or activate one in the API Settings.");
+        setIsModalOpen(true);
+        return;
+    }
 
     setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, isLoading: true } : p));
     setError(null);
 
     try {
-        const imageUrl = await generateImageFromPrompt(promptToGenerate.imagePrompt, referenceImages);
+        const imageUrl = await generateImageFromPrompt(promptToGenerate.imagePrompt, referenceImages, activeGoogleKey.key, selectedModel);
         setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, generatedImageUrl: imageUrl, isLoading: false } : p));
     } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
         setError(`Error for Scene ${sceneId}: ${errorMessage}`);
         setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, isLoading: false } : p));
     }
-  }, [prompts, referenceImages]);
+  }, [prompts, referenceImages, apiKeys, selectedModel]);
 
   const handleDownloadAllPrompts = useCallback(() => {
     downloadPromptsAsXLSX(prompts);
@@ -480,10 +602,19 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-black text-white p-4 md:p-6">
-      <header className="text-center mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-teal-200">
-          NDGroup Media Việt Nam - Tool Tự Động Hóa Chủ Đề Người Tiền Sử
+      <header className="flex justify-between items-center mb-8">
+        <div/>
+        <h1 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-teal-200 text-center">
+          Tool Tự Động Hóa Chủ Đề Người Tiền Sử
         </h1>
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="bg-slate-800 hover:bg-slate-700 text-white font-semibold py-2 px-3 rounded-lg transition-colors flex items-center gap-2"
+          aria-label="Open API Settings"
+        >
+          <KeyIcon className="h-5 w-5" />
+          <span className="hidden md:inline">API Settings</span>
+        </button>
       </header>
       
       {error && (
@@ -516,7 +647,16 @@ export default function App() {
         </div>
       </main>
 
-      {isPopupVisible && <NotificationPopup onClose={() => setIsPopupVisible(false)} />}
+      <ApiKeyModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        apiKeys={apiKeys}
+        onAddKey={handleAddKey}
+        onDeleteKey={handleDeleteKey}
+        onSetActiveKey={handleSetActiveKey}
+        selectedModel={selectedModel}
+        onSelectModel={handleSelectModel}
+      />
     </div>
   );
 }

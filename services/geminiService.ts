@@ -2,12 +2,13 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 import { ImageFile } from '../App'; // Assuming types are exported from App.tsx
 
-export const generateImageFromPrompt = async (prompt: string, referenceImages: ImageFile[]): Promise<string> => {
+export const generateImageFromPrompt = async (prompt: string, referenceImages: ImageFile[], apiKey: string, model: string): Promise<string> => {
   try {
-    if (!process.env.API_KEY) {
-        throw new Error("API_KEY environment variable not set.");
+    if (!apiKey) {
+        throw new Error("API key is missing.");
     }
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // Initialize with the provided API key
+    const ai = new GoogleGenAI({ apiKey });
     
     const imageParts = referenceImages.map(img => ({
       inlineData: {
@@ -19,7 +20,7 @@ export const generateImageFromPrompt = async (prompt: string, referenceImages: I
     const textPart = { text: prompt };
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
+      model, // Use the provided model
       contents: {
         parts: [...imageParts, textPart]
       },
@@ -28,7 +29,6 @@ export const generateImageFromPrompt = async (prompt: string, referenceImages: I
       },
     });
 
-    // FIX: Iterate through parts to find the image data, which is more robust than assuming it's the first part.
     for (const part of response.candidates?.[0]?.content?.parts ?? []) {
       if (part.inlineData) {
         const base64ImageBytes: string = part.inlineData.data;
