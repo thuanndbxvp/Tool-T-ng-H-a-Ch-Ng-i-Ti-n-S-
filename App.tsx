@@ -417,8 +417,6 @@ export default function App() {
 
   useEffect(() => {
     // This effect runs once on component mount.
-    window.open('https://www.youtube.com/@ndgroupvietnam/?sub_confirmation=1', '_blank', 'noopener,noreferrer');
-    
     // Load saved settings from localStorage
     try {
         const savedKeys = localStorage.getItem('apiKeys');
