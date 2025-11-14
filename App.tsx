@@ -18,6 +18,7 @@ interface ScenePrompt {
   videoPrompt: string;
   generatedImageUrl?: string;
   isLoading?: boolean;
+  generationFailed?: boolean;
 }
 
 interface Phase {
@@ -99,6 +100,12 @@ const KeyIcon: FC<{ className?: string }> = ({ className }) => (
 const TrashIcon: FC<{ className?: string }> = ({ className }) => (
     <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.124-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.077-2.09.921-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+    </svg>
+);
+
+const RegenerateIcon: FC<{ className?: string }> = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 11.667 0 8.25 8.25 0 0 0 0-11.667l-3.182-3.182m0 0-3.182 3.182m7.5-3.182-3.182 3.182" />
     </svg>
 );
 
@@ -284,18 +291,32 @@ const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage }) => {
                 ) : prompt.generatedImageUrl ? (
                     <div className="relative group">
                       <img src={prompt.generatedImageUrl} alt={`Generated for Scene ${prompt.id}`} className="w-full aspect-video object-cover rounded-lg" />
-                      <button 
-                        onClick={handleImageDownload} 
-                        className="absolute top-2 right-2 bg-black/50 p-2 rounded-full text-white hover:bg-emerald-500/80 transition-all opacity-0 group-hover:opacity-100"
-                        aria-label="Download image"
-                        title="Download image"
-                      >
-                          <DownloadIcon className="h-5 w-5"/>
-                      </button>
+                      <div className="absolute top-2 right-2 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                         <button 
+                            onClick={() => onGenerateImage(prompt.id)} 
+                            className="bg-black/50 p-2 rounded-full text-white hover:bg-emerald-500/80 transition-all"
+                            aria-label="Regenerate image"
+                            title="Regenerate image"
+                          >
+                              <RegenerateIcon className="h-5 w-5"/>
+                          </button>
+                          <button 
+                            onClick={handleImageDownload} 
+                            className="bg-black/50 p-2 rounded-full text-white hover:bg-emerald-500/80 transition-all"
+                            aria-label="Download image"
+                            title="Download image"
+                          >
+                              <DownloadIcon className="h-5 w-5"/>
+                          </button>
+                      </div>
                     </div>
                 ) : (
-                    <button onClick={() => onGenerateImage(prompt.id)} className="w-full py-2 bg-slate-700 hover:bg-emerald-600 transition-colors rounded-lg text-sm font-semibold">
-                        Generate Image
+                    <button onClick={() => onGenerateImage(prompt.id)} className={`w-full py-2 rounded-lg text-sm font-semibold transition-colors ${
+                        prompt.generationFailed 
+                        ? 'bg-red-800 hover:bg-red-700' 
+                        : 'bg-slate-700 hover:bg-emerald-600'
+                    }`}>
+                        {prompt.generationFailed ? 'Retry Generation' : 'Generate Image'}
                     </button>
                 )}
             </div>
@@ -702,7 +723,7 @@ export default function App() {
         return;
     }
 
-    setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, isLoading: true } : p));
+    setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, isLoading: true, generationFailed: false } : p));
     setError(null);
 
     try {
@@ -711,7 +732,7 @@ export default function App() {
     } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
         setError(`Error for Scene ${sceneId}: ${errorMessage}`);
-        setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, isLoading: false } : p));
+        setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, isLoading: false, generationFailed: true } : p));
     }
   }, [prompts, referenceImages, apiKeys, selectedModel]);
 
