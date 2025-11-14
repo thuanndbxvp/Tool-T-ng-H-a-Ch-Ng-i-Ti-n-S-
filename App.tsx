@@ -114,10 +114,17 @@ interface ControlPanelProps {
   onImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onBuildPrompts: () => void;
   isBuilding: boolean;
+  scriptFileName: string | null;
+  onScriptUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onRemoveScript: () => void;
 }
-const ControlPanel: FC<ControlPanelProps> = ({ scenario, setScenario, duration, setDuration, referenceImages, onImageUpload, onBuildPrompts, isBuilding }) => {
+const ControlPanel: FC<ControlPanelProps> = ({ 
+    scenario, setScenario, duration, setDuration, referenceImages, onImageUpload, 
+    onBuildPrompts, isBuilding, scriptFileName, onScriptUpload, onRemoveScript 
+}) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const canBuild = useMemo(() => referenceImages.length === MAX_REFERENCE_IMAGES && scenario.trim() !== "" && duration > 0, [referenceImages, scenario, duration]);
+  const scriptInputRef = useRef<HTMLInputElement>(null);
+  const canBuild = useMemo(() => referenceImages.length === MAX_REFERENCE_IMAGES && (!!scriptFileName || scenario.trim() !== "") && duration > 0, [referenceImages, scenario, duration, scriptFileName]);
 
   return (
     <div className="bg-slate-950/50 border border-slate-800 p-6 rounded-2xl flex flex-col gap-6 sticky top-6">
@@ -151,10 +158,41 @@ const ControlPanel: FC<ControlPanelProps> = ({ scenario, setScenario, duration, 
           value={scenario}
           onChange={(e) => setScenario(e.target.value)}
           placeholder="e.g., A lone hunter tracking a mammoth"
-          rows={4}
-          className="w-full bg-slate-800 border border-slate-700 p-3 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+          rows={3}
+          className="w-full bg-slate-800 border border-slate-700 p-3 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition disabled:bg-slate-800/50 disabled:cursor-not-allowed"
+          disabled={!!scriptFileName}
         ></textarea>
       </div>
+
+      <div className="relative flex items-center">
+          <div className="flex-grow border-t border-slate-700"></div>
+          <span className="flex-shrink mx-4 text-slate-500 text-sm font-semibold">OR</span>
+          <div className="flex-grow border-t border-slate-700"></div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">📄 Upload Script (.txt)</label>
+        {scriptFileName ? (
+            <div className="flex items-center justify-between bg-slate-800 p-3 rounded-md border border-emerald-800">
+                <span className="text-sm text-emerald-300 truncate font-medium">{scriptFileName}</span>
+                <button onClick={onRemoveScript} className="text-slate-400 hover:text-red-500 transition-colors ml-2" aria-label="Remove script">
+                    <TrashIcon className="h-5 w-5" />
+                </button>
+            </div>
+        ) : (
+            <div 
+              onClick={() => scriptInputRef.current?.click()}
+              className="mt-1 flex justify-center px-6 py-4 border-2 border-slate-600 border-dashed rounded-md cursor-pointer hover:border-emerald-500 transition-colors"
+            >
+              <div className="space-y-1 text-center">
+                 <UploadIcon className="mx-auto h-8 w-8 text-slate-400" />
+                 <p className="text-sm text-slate-400">Click to upload a .txt file</p>
+              </div>
+            </div>
+        )}
+        <input ref={scriptInputRef} type="file" accept=".txt,text/plain" onChange={onScriptUpload} className="hidden" />
+      </div>
+
 
       <div>
         <label htmlFor="duration" className="block text-sm font-medium text-slate-300 mb-2">⏱️ Video Duration (minutes)</label>
@@ -164,8 +202,10 @@ const ControlPanel: FC<ControlPanelProps> = ({ scenario, setScenario, duration, 
           min="1"
           value={duration}
           onChange={(e) => setDuration(parseInt(e.target.value, 10))}
-          className="w-full bg-slate-800 border border-slate-700 p-3 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+          className="w-full bg-slate-800 border border-slate-700 p-3 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition disabled:bg-slate-800/50 disabled:cursor-not-allowed"
+          disabled={!!scriptFileName}
         />
+         {scriptFileName && <p className="text-xs text-slate-400 mt-2">Duration is automatically calculated from the script.</p>}
       </div>
 
       <button
@@ -411,6 +451,9 @@ export default function App() {
   const [isBuilding, setIsBuilding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
+  const [scriptContent, setScriptContent] = useState<string | null>(null);
+  const [scriptFileName, setScriptFileName] = useState<string | null>(null);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash-image');
@@ -483,6 +526,37 @@ export default function App() {
           console.error(err);
       }
   }, []);
+  
+  const handleScriptUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    if (file && (file.type === 'text/plain' || file.name.endsWith('.txt'))) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const text = event.target?.result as string;
+            setScriptContent(text);
+            setScriptFileName(file.name);
+            setScenario(''); // Clear scenario when script is uploaded
+            
+            const lines = text.split('\n').filter(line => line.trim() !== '');
+            const calculatedDuration = Math.ceil((lines.length * SCENE_DURATION_SECONDS) / 60);
+            setDuration(Math.max(1, calculatedDuration)); // Ensure duration is at least 1 minute
+        };
+        reader.onerror = () => {
+            setError('Failed to read script file.');
+        };
+        reader.readAsText(file);
+    } else {
+        setError('Please upload a valid .txt file.');
+    }
+    // Reset the file input value to allow re-uploading the same file
+    e.target.value = '';
+  }, []);
+
+  const handleRemoveScript = useCallback(() => {
+    setScriptContent(null);
+    setScriptFileName(null);
+  }, []);
 
   const downloadPromptsAsXLSX = useCallback((promptsToDownload: ScenePrompt[]) => {
     if (!promptsToDownload.length) return;
@@ -516,58 +590,106 @@ export default function App() {
     }
     setIsBuilding(true);
     setError(null);
+    setPrompts([]);
 
     setTimeout(() => {
-      const totalSec = duration * 60;
-      const scenes: ScenePrompt[] = [];
-      let id = 1;
-      const baseScenario = scenario || "prehistoric survival";
+        if (scriptContent) {
+            // --- SCRIPT-BASED GENERATION ---
+            const lines = scriptContent.split('\n').filter(line => line.trim() !== '');
+            if (lines.length === 0) {
+                setError("The uploaded script is empty or contains only whitespace.");
+                setIsBuilding(false);
+                return;
+            }
 
-      const generateActionDescription = (phase: string, index: number, totalInPhase: number, baseScenario: string): string => {
-        const progress = totalInPhase > 1 ? `(part ${index + 1} of ${totalInPhase})` : '';
-        
-        switch(phase) {
-            case "Hook":
-                return `Establishing the main character and their immediate environment, related to the topic of ${baseScenario}. The character is observing their surroundings with a thoughtful expression. ${progress}`;
-            case "Quest":
-                if (index === 0) return `The character begins a journey with purpose, moving through the landscape. This is the start of a task related to ${baseScenario}. ${progress}`;
-                if (index === totalInPhase - 1) return `The character is nearing their goal, showing a mix of fatigue and focus. The quest for ${baseScenario} is almost complete. ${progress}`;
-                return `The character navigates a challenging part of the terrain (e.g., crossing a shallow river, climbing a rocky outcrop) as they continue their quest for ${baseScenario}. ${progress}`;
-            case "Conflict":
-                if (index < Math.floor(totalInPhase / 2)) return `Tension builds. The character detects a sign of danger or the initial stage of a challenge related to ${baseScenario}. They are cautious and alert. ${progress}`;
-                return `The height of the conflict. The character is actively engaged with the main challenge (e.g., facing a predator, enduring a harsh storm) in their story about ${baseScenario}. ${progress}`;
-            case "Innovation":
-                if (index === 0) return `The character struggles with an old method, a look of frustration hints at the need for a new solution. This is related to ${baseScenario}. ${progress}`;
-                if (index < totalInPhase - 1) return `Deep in concentration, the character experiments with new materials, crafting a new tool or perfecting a new technique. Focus on the hands-on process of innovation for ${baseScenario}. ${progress}`;
-                return `Success! The character uses their new tool or discovery for the first time, with a clear look of accomplishment. This is a breakthrough in their story of ${baseScenario}. ${progress}`;
-            case "Civilization":
-                 if (index < Math.floor(totalInPhase / 2)) return `The focus is on building and community. The character improves their shelter or works alongside others on a task, showing early signs of a settled life, related to ${baseScenario}. ${progress}`;
-                return `A slice of daily life. The character is using improved tools to prepare food, or sharing a quiet moment with their small community, showing the stability they have achieved through ${baseScenario}. ${progress}`;
-            case "Reflection":
-                return `A quiet, concluding moment. The character looks out at the landscape from a high vantage point, reflecting on their journey and the events of ${baseScenario}. ${progress}`;
-            default:
-                return `A scene from the story of ${baseScenario}. ${progress}`;
+            const totalScenes = lines.length;
+            const scenes: ScenePrompt[] = [];
+            
+            // Calculate phase boundaries
+            let phaseBoundaries = [0];
+            let cumulativeRatio = 0;
+            PHASES.forEach((p, index) => {
+                cumulativeRatio += p.ratio;
+                const boundary = (index === PHASES.length - 1) 
+                    ? totalScenes 
+                    : Math.round(totalScenes * cumulativeRatio);
+                phaseBoundaries.push(boundary);
+            });
+
+            for (let i = 0; i < totalScenes; i++) {
+                const actionDescription = lines[i].trim();
+                const sceneId = i + 1;
+                
+                let currentPhase = PHASES[PHASES.length-1].phase; // Default to last phase
+                for (let j = 0; j < PHASES.length; j++) {
+                    if (i >= phaseBoundaries[j] && i < phaseBoundaries[j + 1]) {
+                        currentPhase = PHASES[j].phase;
+                        break;
+                    }
+                }
+                
+                const imagePrompt = `${STYLE_LOCK.replace(/\n/g, ' ')} ${actionDescription}. Distinct moment in the story. Tactile ASMR details (stone flaking, fire crackling). Photorealistic. No text, words, or logos.`;
+                const videoPrompt = `Animate the image from Scene ${sceneId}. Action: "${actionDescription}". Direct continuation of the still image, bringing it to life with subtle motion. Handheld camera (3-5% sway), focus breathing. Prehistoric ambient sounds only. Duration ${SCENE_DURATION_SECONDS}s. Family safe for monetization.`;
+                
+                scenes.push({ id: sceneId, phase: currentPhase, imagePrompt, videoPrompt });
+            }
+            
+            setPrompts(scenes);
+            downloadPromptsAsXLSX(scenes);
+
+        } else {
+            // --- SCENARIO-BASED GENERATION (Original Logic) ---
+            const totalSec = duration * 60;
+            const scenes: ScenePrompt[] = [];
+            let id = 1;
+            const baseScenario = scenario || "prehistoric survival";
+
+            const generateActionDescription = (phase: string, index: number, totalInPhase: number, baseScenario: string): string => {
+                const progress = totalInPhase > 1 ? `(part ${index + 1} of ${totalInPhase})` : '';
+                
+                switch(phase) {
+                    case "Hook":
+                        return `Establishing the main character and their immediate environment, related to the topic of ${baseScenario}. The character is observing their surroundings with a thoughtful expression. ${progress}`;
+                    case "Quest":
+                        if (index === 0) return `The character begins a journey with purpose, moving through the landscape. This is the start of a task related to ${baseScenario}. ${progress}`;
+                        if (index === totalInPhase - 1) return `The character is nearing their goal, showing a mix of fatigue and focus. The quest for ${baseScenario} is almost complete. ${progress}`;
+                        return `The character navigates a challenging part of the terrain (e.g., crossing a shallow river, climbing a rocky outcrop) as they continue their quest for ${baseScenario}. ${progress}`;
+                    case "Conflict":
+                        if (index < Math.floor(totalInPhase / 2)) return `Tension builds. The character detects a sign of danger or the initial stage of a challenge related to ${baseScenario}. They are cautious and alert. ${progress}`;
+                        return `The height of the conflict. The character is actively engaged with the main challenge (e.g., facing a predator, enduring a harsh storm) in their story about ${baseScenario}. ${progress}`;
+                    case "Innovation":
+                        if (index === 0) return `The character struggles with an old method, a look of frustration hints at the need for a new solution. This is related to ${baseScenario}. ${progress}`;
+                        if (index < totalInPhase - 1) return `Deep in concentration, the character experiments with new materials, crafting a new tool or perfecting a new technique. Focus on the hands-on process of innovation for ${baseScenario}. ${progress}`;
+                        return `Success! The character uses their new tool or discovery for the first time, with a clear look of accomplishment. This is a breakthrough in their story of ${baseScenario}. ${progress}`;
+                    case "Civilization":
+                        if (index < Math.floor(totalInPhase / 2)) return `The focus is on building and community. The character improves their shelter or works alongside others on a task, showing early signs of a settled life, related to ${baseScenario}. ${progress}`;
+                        return `A slice of daily life. The character is using improved tools to prepare food, or sharing a quiet moment with their small community, showing the stability they have achieved through ${baseScenario}. ${progress}`;
+                    case "Reflection":
+                        return `A quiet, concluding moment. The character looks out at the landscape from a high vantage point, reflecting on their journey and the events of ${baseScenario}. ${progress}`;
+                    default:
+                        return `A scene from the story of ${baseScenario}. ${progress}`;
+                }
+            }
+
+            PHASES.forEach((p) => {
+                const numScenesInPhase = Math.max(1, Math.round((totalSec * p.ratio) / SCENE_DURATION_SECONDS));
+                for (let i = 0; i < numScenesInPhase; i++) {
+                const actionDescription = generateActionDescription(p.phase, i, numScenesInPhase, baseScenario);
+
+                const imagePrompt = `${STYLE_LOCK.replace(/\n/g, ' ')} ${actionDescription}. Distinct moment in the story. Tactile ASMR details (stone flaking, fire crackling). Photorealistic. No text, words, or logos.`;
+                
+                const videoPrompt = `Animate the image from Scene ${id}. Action: "${actionDescription}". Direct continuation of the still image, bringing it to life with subtle motion. Handheld camera (3-5% sway), focus breathing. Prehistoric ambient sounds only. Duration ${SCENE_DURATION_SECONDS}s. Family safe for monetization.`;
+                
+                scenes.push({ id, phase: p.phase, imagePrompt, videoPrompt });
+                id++;
+                }
+            });
+            setPrompts(scenes);
+            downloadPromptsAsXLSX(scenes);
         }
-    }
-
-      PHASES.forEach((p) => {
-        const numScenesInPhase = Math.max(1, Math.round((totalSec * p.ratio) / SCENE_DURATION_SECONDS));
-        for (let i = 0; i < numScenesInPhase; i++) {
-          const actionDescription = generateActionDescription(p.phase, i, numScenesInPhase, baseScenario);
-
-          const imagePrompt = `${STYLE_LOCK.replace(/\n/g, ' ')} ${actionDescription}. Distinct moment in the story. Tactile ASMR details (stone flaking, fire crackling). Photorealistic. No text, words, or logos.`;
-          
-          const videoPrompt = `Animate the image from Scene ${id}. Action: "${actionDescription}". Direct continuation of the still image, bringing it to life with subtle motion. Handheld camera (3-5% sway), focus breathing. Prehistoric ambient sounds only. Duration ${SCENE_DURATION_SECONDS}s. Family safe for monetization.`;
-          
-          scenes.push({ id, phase: p.phase, imagePrompt, videoPrompt });
-          id++;
-        }
-      });
-      setPrompts(scenes);
-      downloadPromptsAsXLSX(scenes);
       setIsBuilding(false);
     }, 500);
-  }, [referenceImages.length, duration, scenario, downloadPromptsAsXLSX]);
+  }, [referenceImages.length, duration, scenario, downloadPromptsAsXLSX, scriptContent]);
 
   const handleGenerateImage = useCallback(async (sceneId: number) => {
     const promptToGenerate = prompts.find(p => p.id === sceneId);
@@ -633,6 +755,9 @@ export default function App() {
             onImageUpload={handleImageUpload}
             onBuildPrompts={handleBuildPrompts}
             isBuilding={isBuilding}
+            scriptFileName={scriptFileName}
+            onScriptUpload={handleScriptUpload}
+            onRemoveScript={handleRemoveScript}
           />
         </div>
 
