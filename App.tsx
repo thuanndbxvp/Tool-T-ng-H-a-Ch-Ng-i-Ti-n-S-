@@ -109,6 +109,11 @@ const RegenerateIcon: FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
+const SparklesIcon: FC<{ className?: string }> = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" />
+    </svg>
+);
 
 // --- CHILD COMPONENTS ---
 
@@ -231,8 +236,9 @@ const ControlPanel: FC<ControlPanelProps> = ({
 interface PromptCardProps {
     prompt: ScenePrompt;
     onGenerateImage: (id: number) => void;
+    isBatchGenerating: boolean;
 }
-const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage }) => {
+const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage, isBatchGenerating }) => {
     const [copied, setCopied] = useState('');
 
     const handleCopy = (text: string, type: string) => {
@@ -293,8 +299,9 @@ const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage }) => {
                       <img src={prompt.generatedImageUrl} alt={`Generated for Scene ${prompt.id}`} className="w-full aspect-video object-cover rounded-lg" />
                       <div className="absolute top-2 right-2 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                          <button 
-                            onClick={() => onGenerateImage(prompt.id)} 
-                            className="bg-black/50 p-2 rounded-full text-white hover:bg-emerald-500/80 transition-all"
+                            onClick={() => onGenerateImage(prompt.id)}
+                            disabled={isBatchGenerating} 
+                            className="bg-black/50 p-2 rounded-full text-white hover:bg-emerald-500/80 transition-all disabled:bg-slate-600/50 disabled:cursor-not-allowed"
                             aria-label="Regenerate image"
                             title="Regenerate image"
                           >
@@ -311,11 +318,15 @@ const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage }) => {
                       </div>
                     </div>
                 ) : (
-                    <button onClick={() => onGenerateImage(prompt.id)} className={`w-full py-2 rounded-lg text-sm font-semibold transition-colors ${
-                        prompt.generationFailed 
-                        ? 'bg-red-800 hover:bg-red-700' 
-                        : 'bg-slate-700 hover:bg-emerald-600'
-                    }`}>
+                    <button 
+                        onClick={() => onGenerateImage(prompt.id)} 
+                        disabled={isBatchGenerating}
+                        className={`w-full py-2 rounded-lg text-sm font-semibold transition-colors disabled:bg-slate-600 disabled:text-slate-400 disabled:cursor-not-allowed ${
+                            prompt.generationFailed 
+                            ? 'bg-red-800 hover:bg-red-700' 
+                            : 'bg-slate-700 hover:bg-emerald-600'
+                        }`}
+                    >
                         {prompt.generationFailed ? 'Retry Generation' : 'Generate Image'}
                     </button>
                 )}
@@ -329,8 +340,15 @@ interface PromptDisplayProps {
     prompts: ScenePrompt[];
     onGenerateImage: (id: number) => void;
     onDownloadAllPrompts: () => void;
+    onGenerateAllImages: () => void;
+    onDownloadAllImages: () => void;
+    isBatchGenerating: boolean;
+    hasGeneratedImages: boolean;
 }
-const PromptDisplay: FC<PromptDisplayProps> = ({ prompts, onGenerateImage, onDownloadAllPrompts }) => {
+const PromptDisplay: FC<PromptDisplayProps> = ({ 
+    prompts, onGenerateImage, onDownloadAllPrompts, onGenerateAllImages, onDownloadAllImages, 
+    isBatchGenerating, hasGeneratedImages 
+}) => {
     const [copiedAll, setCopiedAll] = useState<'image' | 'video' | null>(null);
 
     const handleCopyAll = (type: 'image' | 'video') => {
@@ -360,6 +378,14 @@ const PromptDisplay: FC<PromptDisplayProps> = ({ prompts, onGenerateImage, onDow
             <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
                 <h2 className="text-xl font-bold text-emerald-400">2. Generated Prompts</h2>
                 <div className="flex flex-wrap gap-2">
+                    <button onClick={onGenerateAllImages} disabled={isBatchGenerating} className="bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white text-xs font-semibold py-2 px-3 rounded-lg transition-colors flex items-center gap-2">
+                        {isBatchGenerating ? <SpinnerIcon className="h-4 w-4 animate-spin"/> : <SparklesIcon className="h-4 w-4" />}
+                        {isBatchGenerating ? 'Generating...' : 'Generate All Images'}
+                    </button>
+                    <button onClick={onDownloadAllImages} disabled={!hasGeneratedImages || isBatchGenerating} className="bg-slate-700 hover:bg-slate-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white text-xs font-semibold py-2 px-3 rounded-lg transition-colors flex items-center gap-2">
+                        <DownloadIcon className="h-4 w-4" />
+                        Download All Images
+                    </button>
                     <button onClick={() => handleCopyAll('image')} className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold py-2 px-3 rounded-lg transition-colors flex items-center gap-2">
                         <CopyIcon className="h-4 w-4" />
                         {copiedAll === 'image' ? 'Copied!' : 'Copy All Image Prompts'}
@@ -376,7 +402,7 @@ const PromptDisplay: FC<PromptDisplayProps> = ({ prompts, onGenerateImage, onDow
             </div>
              <div className="space-y-4 max-h-[85vh] overflow-y-auto pr-2">
                 {prompts.map((p) => (
-                    <PromptCard key={p.id} prompt={p} onGenerateImage={onGenerateImage} />
+                    <PromptCard key={p.id} prompt={p} onGenerateImage={onGenerateImage} isBatchGenerating={isBatchGenerating} />
                 ))}
              </div>
         </div>
@@ -500,6 +526,9 @@ export default function App() {
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash-image');
 
+  const [isBatchGenerating, setIsBatchGenerating] = useState(false);
+  const generationQueue = useRef<number[]>([]);
+
   useEffect(() => {
     // This effect runs once on component mount.
     // Load saved settings from localStorage
@@ -602,7 +631,6 @@ export default function App() {
 
   const downloadPromptsAsXLSX = useCallback((promptsToDownload: ScenePrompt[]) => {
     if (!promptsToDownload.length) return;
-
     try {
         const header = ["STT", "Phase", "Image Prompt", "Video Prompt"];
         const data = promptsToDownload.map(p => [p.id, p.phase, p.imagePrompt, p.videoPrompt]);
@@ -621,6 +649,7 @@ export default function App() {
         XLSX.utils.book_append_sheet(workbook, worksheet, "Prompts");
         XLSX.writeFile(workbook, "all-prompts.xlsx");
     } catch (err) {
+        setError("Failed to generate XLSX file. The XLSX library might not be loaded correctly.");
         console.error("Failed to generate XLSX file:", err);
     }
   }, []);
@@ -655,7 +684,6 @@ export default function App() {
             });
             
             setPrompts(scenes);
-            downloadPromptsAsXLSX(scenes);
 
         } else {
             // --- SCENARIO-BASED GENERATION (Original Logic) ---
@@ -705,11 +733,10 @@ export default function App() {
                 }
             });
             setPrompts(scenes);
-            downloadPromptsAsXLSX(scenes);
         }
       setIsBuilding(false);
     }, 500);
-  }, [referenceImages.length, duration, scenario, downloadPromptsAsXLSX, scriptContent]);
+  }, [referenceImages.length, duration, scenario, scriptContent]);
 
   const handleGenerateImage = useCallback(async (sceneId: number) => {
     const promptToGenerate = prompts.find(p => p.id === sceneId);
@@ -739,6 +766,54 @@ export default function App() {
   const handleDownloadAllPrompts = useCallback(() => {
     downloadPromptsAsXLSX(prompts);
   }, [prompts, downloadPromptsAsXLSX]);
+
+  // --- BATCH PROCESSING LOGIC ---
+  const handleGenerateImageRef = useRef(handleGenerateImage);
+  handleGenerateImageRef.current = handleGenerateImage;
+
+  const processQueue = useCallback(async () => {
+      if (generationQueue.current.length === 0) {
+          setIsBatchGenerating(false);
+          return;
+      }
+      const sceneId = generationQueue.current.shift();
+      if (sceneId) {
+          await handleGenerateImageRef.current(sceneId);
+      }
+      setTimeout(processQueue, 500); // Process next item after a short delay
+  }, []);
+
+  const handleGenerateAllImages = useCallback(() => {
+      const idsToGenerate = prompts.filter(p => !p.generatedImageUrl).map(p => p.id);
+      if (idsToGenerate.length === 0) {
+          setError("All images have already been generated or have a pending generation.");
+          return;
+      }
+      generationQueue.current = idsToGenerate;
+      setIsBatchGenerating(true);
+      processQueue();
+  }, [prompts, processQueue]);
+
+  const handleDownloadAllImages = useCallback(() => {
+    const imagesToDownload = prompts.filter(p => p.generatedImageUrl);
+    if (imagesToDownload.length === 0) {
+        setError("No images have been generated to download.");
+        return;
+    }
+    imagesToDownload.forEach((prompt, index) => {
+        setTimeout(() => {
+            if (!prompt.generatedImageUrl) return;
+            const a = document.createElement('a');
+            a.href = prompt.generatedImageUrl;
+            a.download = `scene-${prompt.id}.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }, index * 300); // Stagger downloads to prevent browser issues
+    });
+  }, [prompts]);
+  
+  const hasGeneratedImages = useMemo(() => prompts.some(p => p.generatedImageUrl), [prompts]);
 
   return (
     <div className="min-h-screen bg-black text-white p-4 md:p-6">
@@ -786,6 +861,10 @@ export default function App() {
             prompts={prompts} 
             onGenerateImage={handleGenerateImage}
             onDownloadAllPrompts={handleDownloadAllPrompts}
+            onGenerateAllImages={handleGenerateAllImages}
+            onDownloadAllImages={handleDownloadAllImages}
+            isBatchGenerating={isBatchGenerating}
+            hasGeneratedImages={hasGeneratedImages}
           />
         </div>
       </main>

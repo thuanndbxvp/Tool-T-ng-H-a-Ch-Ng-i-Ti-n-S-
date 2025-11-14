@@ -37,8 +37,22 @@ export const generateImageFromPrompt = async (prompt: string, referenceImages: I
       }
     }
 
-    const fallbackError = response.candidates?.[0]?.finishReason;
-    throw new Error(fallbackError ? `Image generation failed: ${fallbackError}` : "No image was generated in the response.");
+    const finishReason = response.candidates?.[0]?.finishReason;
+    let userFriendlyError = "No image was generated in the response. The model may have refused to generate the image.";
+
+    if (finishReason) {
+        switch (finishReason) {
+            case 'NO_IMAGE':
+                userFriendlyError = "The model did not generate an image for this prompt, possibly due to safety policies or prompt clarity. Please try regenerating.";
+                break;
+            case 'SAFETY':
+                 userFriendlyError = "Image generation was blocked due to safety policies. Please try a different prompt.";
+                 break;
+            default:
+                userFriendlyError = `Image generation failed: ${finishReason}`;
+        }
+    }
+    throw new Error(userFriendlyError);
 
   } catch (error) {
     console.error("Error generating image with Gemini:", error);
