@@ -310,6 +310,19 @@ interface PromptDisplayProps {
     onDownloadAllPrompts: () => void;
 }
 const PromptDisplay: FC<PromptDisplayProps> = ({ prompts, onGenerateImage, onDownloadAllPrompts }) => {
+    const [copiedAll, setCopiedAll] = useState<'image' | 'video' | null>(null);
+
+    const handleCopyAll = (type: 'image' | 'video') => {
+        if (!prompts.length) return;
+        const textToCopy = prompts
+            .map(p => type === 'image' ? p.imagePrompt : p.videoPrompt)
+            .join('\n');
+        
+        navigator.clipboard.writeText(textToCopy);
+        setCopiedAll(type);
+        setTimeout(() => setCopiedAll(null), 2000);
+    };
+
     if (prompts.length === 0) {
         return (
             <div className="bg-slate-950/50 border border-slate-800 p-6 rounded-2xl flex items-center justify-center min-h-[50vh]">
@@ -325,7 +338,15 @@ const PromptDisplay: FC<PromptDisplayProps> = ({ prompts, onGenerateImage, onDow
         <div className="bg-slate-950/50 border border-slate-800 p-6 rounded-2xl">
             <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
                 <h2 className="text-xl font-bold text-emerald-400">2. Generated Prompts</h2>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                    <button onClick={() => handleCopyAll('image')} className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold py-2 px-3 rounded-lg transition-colors flex items-center gap-2">
+                        <CopyIcon className="h-4 w-4" />
+                        {copiedAll === 'image' ? 'Copied!' : 'Copy All Image Prompts'}
+                    </button>
+                    <button onClick={() => handleCopyAll('video')} className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold py-2 px-3 rounded-lg transition-colors flex items-center gap-2">
+                        <CopyIcon className="h-4 w-4" />
+                        {copiedAll === 'video' ? 'Copied!' : 'Copy All Video Prompts'}
+                    </button>
                     <button onClick={onDownloadAllPrompts} className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold py-2 px-3 rounded-lg transition-colors flex items-center gap-2">
                         <DownloadIcon className="h-4 w-4" />
                         Download All Prompts (XLSX)
@@ -607,7 +628,7 @@ export default function App() {
                 const sceneId = index + 1;
 
                 const imagePrompt = `${STYLE_LOCK.replace(/\n/g, ' ')} ${actionDescription}. Distinct moment in the story. Tactile ASMR details (stone flaking, fire crackling). Photorealistic. No text, words, or logos.`;
-                const videoPrompt = `Action: "${actionDescription}". Direct continuation of the still image, bringing it to life with subtle motion. Handheld camera (3-5% sway), focus breathing. Prehistoric ambient sounds only. Duration ${SCENE_DURATION_SECONDS}s. Family safe for monetization.`;
+                const videoPrompt = `Scene ${sceneId}: "${actionDescription}". Direct continuation of the still image, bringing it to life with subtle motion. Handheld camera (3-5% sway), focus breathing. Prehistoric ambient sounds only. Duration ${SCENE_DURATION_SECONDS}s. Family safe for monetization.`;
                 
                 return { id: sceneId, phase: "From Script", imagePrompt, videoPrompt };
             });
@@ -656,7 +677,7 @@ export default function App() {
 
                 const imagePrompt = `${STYLE_LOCK.replace(/\n/g, ' ')} ${actionDescription}. Distinct moment in the story. Tactile ASMR details (stone flaking, fire crackling). Photorealistic. No text, words, or logos.`;
                 
-                const videoPrompt = `Action: "${actionDescription}". Direct continuation of the still image, bringing it to life with subtle motion. Handheld camera (3-5% sway), focus breathing. Prehistoric ambient sounds only. Duration ${SCENE_DURATION_SECONDS}s. Family safe for monetization.`;
+                const videoPrompt = `Scene ${id}: "${actionDescription}". Direct continuation of the still image, bringing it to life with subtle motion. Handheld camera (3-5% sway), focus breathing. Prehistoric ambient sounds only. Duration ${SCENE_DURATION_SECONDS}s. Family safe for monetization.`;
                 
                 scenes.push({ id, phase: p.phase, imagePrompt, videoPrompt });
                 id++;
