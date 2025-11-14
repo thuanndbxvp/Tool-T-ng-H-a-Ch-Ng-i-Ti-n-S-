@@ -601,38 +601,16 @@ export default function App() {
                 setIsBuilding(false);
                 return;
             }
-
-            const totalScenes = lines.length;
-            const scenes: ScenePrompt[] = [];
             
-            // Calculate phase boundaries
-            let phaseBoundaries = [0];
-            let cumulativeRatio = 0;
-            PHASES.forEach((p, index) => {
-                cumulativeRatio += p.ratio;
-                const boundary = (index === PHASES.length - 1) 
-                    ? totalScenes 
-                    : Math.round(totalScenes * cumulativeRatio);
-                phaseBoundaries.push(boundary);
-            });
+            const scenes: ScenePrompt[] = lines.map((line, index) => {
+                const actionDescription = line.trim();
+                const sceneId = index + 1;
 
-            for (let i = 0; i < totalScenes; i++) {
-                const actionDescription = lines[i].trim();
-                const sceneId = i + 1;
-                
-                let currentPhase = PHASES[PHASES.length-1].phase; // Default to last phase
-                for (let j = 0; j < PHASES.length; j++) {
-                    if (i >= phaseBoundaries[j] && i < phaseBoundaries[j + 1]) {
-                        currentPhase = PHASES[j].phase;
-                        break;
-                    }
-                }
-                
                 const imagePrompt = `${STYLE_LOCK.replace(/\n/g, ' ')} ${actionDescription}. Distinct moment in the story. Tactile ASMR details (stone flaking, fire crackling). Photorealistic. No text, words, or logos.`;
                 const videoPrompt = `Animate the image from Scene ${sceneId}. Action: "${actionDescription}". Direct continuation of the still image, bringing it to life with subtle motion. Handheld camera (3-5% sway), focus breathing. Prehistoric ambient sounds only. Duration ${SCENE_DURATION_SECONDS}s. Family safe for monetization.`;
                 
-                scenes.push({ id: sceneId, phase: currentPhase, imagePrompt, videoPrompt });
-            }
+                return { id: sceneId, phase: "From Script", imagePrompt, videoPrompt };
+            });
             
             setPrompts(scenes);
             downloadPromptsAsXLSX(scenes);
