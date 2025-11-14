@@ -607,7 +607,7 @@ export default function App() {
                 const sceneId = index + 1;
 
                 const imagePrompt = `${STYLE_LOCK.replace(/\n/g, ' ')} ${actionDescription}. Distinct moment in the story. Tactile ASMR details (stone flaking, fire crackling). Photorealistic. No text, words, or logos.`;
-                const videoPrompt = `Animate the image from Scene ${sceneId}. Action: "${actionDescription}". Direct continuation of the still image, bringing it to life with subtle motion. Handheld camera (3-5% sway), focus breathing. Prehistoric ambient sounds only. Duration ${SCENE_DURATION_SECONDS}s. Family safe for monetization.`;
+                const videoPrompt = `Action: "${actionDescription}". Direct continuation of the still image, bringing it to life with subtle motion. Handheld camera (3-5% sway), focus breathing. Prehistoric ambient sounds only. Duration ${SCENE_DURATION_SECONDS}s. Family safe for monetization.`;
                 
                 return { id: sceneId, phase: "From Script", imagePrompt, videoPrompt };
             });
@@ -656,7 +656,7 @@ export default function App() {
 
                 const imagePrompt = `${STYLE_LOCK.replace(/\n/g, ' ')} ${actionDescription}. Distinct moment in the story. Tactile ASMR details (stone flaking, fire crackling). Photorealistic. No text, words, or logos.`;
                 
-                const videoPrompt = `Animate the image from Scene ${id}. Action: "${actionDescription}". Direct continuation of the still image, bringing it to life with subtle motion. Handheld camera (3-5% sway), focus breathing. Prehistoric ambient sounds only. Duration ${SCENE_DURATION_SECONDS}s. Family safe for monetization.`;
+                const videoPrompt = `Action: "${actionDescription}". Direct continuation of the still image, bringing it to life with subtle motion. Handheld camera (3-5% sway), focus breathing. Prehistoric ambient sounds only. Duration ${SCENE_DURATION_SECONDS}s. Family safe for monetization.`;
                 
                 scenes.push({ id, phase: p.phase, imagePrompt, videoPrompt });
                 id++;
