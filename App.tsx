@@ -344,16 +344,16 @@ interface ApiKeyModalProps {
     onSelectModel: (model: string) => void;
 }
 const ApiKeyModal: FC<ApiKeyModalProps> = ({ isOpen, onClose, apiKeys, onAddKey, onDeleteKey, onSetActiveKey, selectedModel, onSelectModel }) => {
-    const [newKeyName, setNewKeyName] = useState('');
     const [newKeyValue, setNewKeyValue] = useState('');
     const [activeProvider, setActiveProvider] = useState<ApiKey['provider']>('Google');
 
     if (!isOpen) return null;
 
     const handleAdd = () => {
-        if (newKeyName.trim() && newKeyValue.trim()) {
-            onAddKey(activeProvider, newKeyName, newKeyValue);
-            setNewKeyName('');
+        if (newKeyValue.trim()) {
+            const existingCount = apiKeys.filter(k => k.provider === activeProvider).length;
+            const name = `${activeProvider} Key ${existingCount + 1}`;
+            onAddKey(activeProvider, name, newKeyValue);
             setNewKeyValue('');
         }
     };
@@ -408,9 +408,8 @@ const ApiKeyModal: FC<ApiKeyModalProps> = ({ isOpen, onClose, apiKeys, onAddKey,
                             </nav>
                         </div>
                         <div className="space-y-4 p-1">
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <input type="text" placeholder="Tên gợi nhớ" value={newKeyName} onChange={e => setNewKeyName(e.target.value)} className="bg-slate-800 border border-slate-700 p-3.5 rounded-xl focus:ring-2 focus:ring-emerald-500 transition text-sm text-white shadow-inner" />
-                                <input type="password" placeholder="Dán API Key vào đây" value={newKeyValue} onChange={e => setNewKeyValue(e.target.value)} className="bg-slate-800 border border-slate-700 p-3.5 rounded-xl focus:ring-2 focus:ring-emerald-500 transition text-sm text-white shadow-inner" />
+                             <div className="w-full">
+                                <input type="password" placeholder="Dán API Key vào đây" value={newKeyValue} onChange={e => setNewKeyValue(e.target.value)} className="w-full bg-slate-800 border border-slate-700 p-3.5 rounded-xl focus:ring-2 focus:ring-emerald-500 transition text-sm text-white shadow-inner" />
                             </div>
                             <button onClick={handleAdd} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg active:scale-95">Thêm API Key mới</button>
                         </div>

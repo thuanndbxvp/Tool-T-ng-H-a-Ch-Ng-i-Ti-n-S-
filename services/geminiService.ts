@@ -10,10 +10,10 @@ export const analyzeScriptWithAI = async (script: string, apiKey: string, styleL
   const systemInstruction = `You are a professional storyboard artist and script analyst. 
 Target Audience: Elderly women over 60 years old. 
 Story Tone: Nostalgic, gentle, slightly melancholic ("u buồn"), deeply emotional, focused on memories and everyday life. 
-Your Task: Analyze the provided script and split it into logical visual scenes that connect emotionally. 
+Your Task: Analyze the provided script and break it down into maximum granularity. **Create a separate visual scene for EVERY SINGLE SENTENCE**. Do not group sentences together. If a sentence has multiple distinct actions or clauses, split them into separate scenes. The goal is to produce a high quantity of images to cover every moment of the script.
 
 For each scene, provide:
-1. "scriptLine": The original text segment from the script.
+1. "scriptLine": The specific sentence or phrase from the script corresponding to this image.
 2. "phase": The story phase (Hook, Setup, Tension, Action, Climax, Resolution).
 3. "imagePrompt": A highly detailed visual prompt for an image generator (optimized for Gemini 3 Pro Image).
    - Character: Often an elderly woman, aged gracefully, gentle expression, relatable to the target audience.
