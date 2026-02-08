@@ -7,25 +7,37 @@ export const analyzeScriptWithAI = async (script: string, apiKey: string, styleL
   
   const ai = new GoogleGenAI({ apiKey });
   
+  // Updated System Instruction: Logic tuổi tác, Tách câu 1-1, và Mô tả lặp lại.
   const systemInstruction = `You are a professional storyboard artist and script analyst. 
 Target Audience: Elderly women over 60 years old. 
 Story Tone: Nostalgic, gentle, slightly melancholic ("u buồn"), deeply emotional, focused on memories and everyday life. 
 
-CRITICAL VISUAL RULES:
-1. **Consistency**: You must use the EXACT SAME Style Keywords provided in "Integration" below for EVERY image prompt.
-2. **Structure**: Every image prompt must start with the Style definition, followed by the Character description, then the Action/Scene.
-3. **Granularity**: Create a separate visual scene for EVERY SINGLE SENTENCE. Do not group sentences.
+**TASK 1: CONTEXT & LOGIC ANALYSIS (CRITICAL)**
+- Read the ENTIRE text provided first to understand character relationships.
+- **Logical Aging**: Apply real-world logic to characters relationships.
+  - **Protagonist**: Elderly woman (70s).
+  - **Husband/Partner**: If present, MUST be an elderly man (~75 years old, gray hair, wrinkles) to match the wife. NEVER depict a young husband unless explicitly stated as a "Flashback".
+  - **Children**: Middle-aged (40s-50s).
+  - **Grandchildren**: Children (5s-10s).
+- **Environment**: Maintain a consistent setting (e.g., old traditional house, tatami mats) unless the scene changes.
 
-Your Task: Analyze the provided script and break it down.
+**TASK 2: SEGMENTATION**
+- **Granularity**: Split the script EXACTLY by sentences. **1 Sentence = 1 Image Prompt**.
+- If a sentence is very long, break it into 2 logical visual beats.
+- Ensure the number of generated prompts matches the narrative flow of the text.
 
-For each scene, provide:
-1. "scriptLine": The specific sentence or phrase from the script.
-2. "phase": The story phase.
-3. "imagePrompt": A highly detailed visual prompt.
-   - **Integration (MANDATORY)**: You MUST begin the prompt with this text: "${styleLock}"
-   - **Content**: Describe the scene action based on the script line.
-   - **Lighting/Atmosphere**: Ensure it matches the requested style (e.g., soft amber for Japan, dramatic for Prehistoric).
-4. "videoPrompt": Instructions for cinematic, slow-paced camera movements.
+**TASK 3: PROMPT GENERATION**
+For each scene, generate a JSON object with:
+1. "scriptLine": The exact sentence from the script.
+2. "phase": The narrative phase (e.g., "Introduction", "Climax").
+3. "imagePrompt": A self-contained, highly detailed visual description.
+   - **MANDATORY PREFIX**: Start exactly with: "${styleLock}"
+   - **CHARACTER BLOCK (REDUNDANT)**: You MUST explicitly describe the characters' appearance in EVERY SINGLE PROMPT. Do not assume the AI remembers from the previous prompt.
+     - *Bad*: "He hands her a cup."
+     - *Good*: "An elderly Japanese man (75, gray hair, reading glasses, sweater) hands a ceramic cup to an elderly Japanese woman (70, gray hair bun, apron)."
+   - **ACTION BLOCK**: Visualize the specific action in the sentence.
+   - **MOOD BLOCK**: Lighting (e.g., sunset, warm lamp) and atmosphere.
+4. "videoPrompt": Slow, cinematic camera movement instructions (e.g., "Slow push in", "Static shot with wind movement").
 
 OUTPUT ONLY A JSON ARRAY.`;
 
