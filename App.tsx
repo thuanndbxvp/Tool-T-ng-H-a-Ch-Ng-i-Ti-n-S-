@@ -249,10 +249,10 @@ const ControlPanel: FC<ControlPanelProps> = ({
             <button
                 onClick={() => onPreviewVoice(selectedVoice)}
                 disabled={isVoicePreviewing}
-                className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-wait"
+                title="Nghe thử"
+                className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white p-1.5 rounded-md transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-wait"
             >
                 {isVoicePreviewing ? <SpinnerIcon className="animate-spin h-3 w-3" /> : <PlayIcon className="h-3 w-3" />}
-                {isVoicePreviewing ? 'Loading...' : 'Nghe thử'}
             </button>
         </div>
         <select

@@ -154,7 +154,7 @@ export const analyzeScriptWithAI = async (script: string, apiKey: string, styleL
   
   const ai = new GoogleGenAI({ apiKey });
   
-  // Updated System Instruction: Logic tuổi tác, Tách câu 1-1, và Mô tả lặp lại.
+  // Updated System Instruction: Logic phân đoạn Semantic Segmentation (7-15 từ)
   const systemInstruction = `You are a professional storyboard artist and script analyst. 
 Target Audience: Elderly women over 60 years old. 
 Story Tone: Nostalgic, gentle, slightly melancholic ("u buồn"), deeply emotional, focused on memories and everyday life. 
@@ -168,14 +168,16 @@ Story Tone: Nostalgic, gentle, slightly melancholic ("u buồn"), deeply emotion
   - **Grandchildren**: Children (5s-10s).
 - **Environment**: Maintain a consistent setting (e.g., old traditional house, tatami mats) unless the scene changes.
 
-**TASK 2: SEGMENTATION**
-- **Granularity**: Split the script EXACTLY by sentences. **1 Sentence = 1 Image Prompt**.
-- If a sentence is very long, break it into 2 logical visual beats.
-- Ensure the number of generated prompts matches the narrative flow of the text.
+**TASK 2: SEGMENTATION (STRICT & CRITICAL)**
+Do NOT simply split by sentences or punctuation. Use **Semantic Segmentation**.
+- **Rule 1 (Length)**: Break the script into short segments/lines of approximately **7-15 words**. This is optimized for visual pacing and TTS breathing.
+- **Rule 2 (Semantic Integrity)**: Do NOT cut in the middle of a thought or content just to meet the word count. Each segment must be a complete logical thought, phrase, or meaningful unit.
+- **Rule 3 (Fidelity)**: STRICTLY **do not add, remove, or translate ANY words** from the original script. The combined output of "scriptLine" fields must equal the input text exactly.
+- **Rule 4 (Format)**: Each segmented line corresponds to one item (one Scene) in the JSON output array.
 
 **TASK 3: PROMPT GENERATION**
-For each scene, generate a JSON object with:
-1. "scriptLine": The exact sentence from the script.
+For each segmented line (Scene), generate a JSON object with:
+1. "scriptLine": The exact segmented text line (approx 7-15 words) from the script based on the rules above.
 2. "phase": The narrative phase (e.g., "Introduction", "Climax").
 3. "imagePrompt": A self-contained, highly detailed visual description.
    - **MANDATORY PREFIX**: Start exactly with: "${styleLock}"
