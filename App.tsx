@@ -1,6 +1,7 @@
 
 import React, { useState, useRef, useCallback, FC, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
+import JSZip from 'jszip';
 import { generateImageFromPrompt, analyzeScriptWithAI } from './services/geminiService';
 
 // --- TYPES & CONSTANTS ---
@@ -70,6 +71,17 @@ const parseSrt = (content: string): string => {
   return dialogue.trim();
 };
 
+const getTimestamp = () => {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const h = String(now.getHours()).padStart(2, '0');
+  const m = String(now.getMinutes()).padStart(2, '0');
+  const s = String(now.getSeconds()).padStart(2, '0');
+  return `${yyyy}${mm}${dd}_${h}${m}${s}`;
+};
+
 // --- UI ICONS ---
 const UploadIcon: FC<{ className?: string }> = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -104,6 +116,18 @@ const RefreshIcon: FC<{ className?: string }> = ({ className }) => (
 const PlayIcon: FC<{ className?: string }> = ({ className }) => (
     <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
+    </svg>
+);
+
+const ZipIcon: FC<{ className?: string }> = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+    </svg>
+);
+
+const WarningIcon: FC<{ className?: string }> = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
     </svg>
 );
 
@@ -250,7 +274,8 @@ const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage }) => {
         if (!prompt.generatedImageUrl) return;
         const a = document.createElement('a');
         a.href = prompt.generatedImageUrl;
-        a.download = `scene-${prompt.id}.png`;
+        const timestamp = getTimestamp();
+        a.download = `Scene ${prompt.id}_${timestamp}.png`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -330,9 +355,13 @@ interface PromptDisplayProps {
     onGenerateImage: (id: number) => void;
     onDownloadAllPrompts: () => void;
     onGenerateAll: () => void;
+    onDownloadAllImages: () => void;
     isGeneratingAll: boolean;
 }
-const PromptDisplay: FC<PromptDisplayProps> = ({ prompts, onGenerateImage, onDownloadAllPrompts, onGenerateAll, isGeneratingAll }) => {
+const PromptDisplay: FC<PromptDisplayProps> = ({ prompts, onGenerateImage, onDownloadAllPrompts, onGenerateAll, onDownloadAllImages, isGeneratingAll }) => {
+    const hasMissingImages = useMemo(() => prompts.some(p => !p.generatedImageUrl), [prompts]);
+    const hasGeneratedImages = useMemo(() => prompts.some(p => p.generatedImageUrl), [prompts]);
+
     if (prompts.length === 0) {
         return (
             <div className="bg-slate-950/50 border border-slate-800 p-6 rounded-2xl flex items-center justify-center min-h-[50vh] shadow-inner backdrop-blur-sm">
@@ -351,15 +380,35 @@ const PromptDisplay: FC<PromptDisplayProps> = ({ prompts, onGenerateImage, onDow
                     <span className="w-2 h-8 bg-emerald-500 rounded-full"></span>
                     2. AI Generated Prompts ({prompts.length} scenes)
                 </h2>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                    {/* Main Generate/Retry Button */}
                     <button 
                         onClick={onGenerateAll} 
-                        disabled={isGeneratingAll}
-                        className={`text-xs font-bold py-2 px-4 rounded-lg transition-all flex items-center gap-2 shadow-md ${isGeneratingAll ? 'bg-slate-600 cursor-not-allowed text-slate-400' : 'bg-emerald-600 hover:bg-emerald-500 text-white'}`}
+                        disabled={isGeneratingAll || !hasMissingImages}
+                        className={`text-xs font-bold py-2 px-4 rounded-lg transition-all flex items-center gap-2 shadow-md ${
+                            isGeneratingAll 
+                                ? 'bg-slate-600 cursor-not-allowed text-slate-400' 
+                                : hasMissingImages 
+                                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                                    : 'bg-slate-700 text-slate-400 cursor-default'
+                        }`}
+                        title={hasMissingImages ? "Tạo ảnh cho các phân cảnh chưa có hình" : "Đã tạo đủ ảnh"}
                     >
-                        {isGeneratingAll ? <SpinnerIcon className="animate-spin h-4 w-4" /> : <PlayIcon className="h-4 w-4" />}
-                        {isGeneratingAll ? 'Đang tạo hàng loạt...' : 'Tạo tất cả ảnh'}
+                        {isGeneratingAll ? <SpinnerIcon className="animate-spin h-4 w-4" /> : hasMissingImages ? <WarningIcon className="h-4 w-4" /> : <PlayIcon className="h-4 w-4" />}
+                        {isGeneratingAll ? 'Đang xử lý...' : hasMissingImages ? 'Tạo lại ảnh lỗi/thiếu' : 'Đã tạo đủ ảnh'}
                     </button>
+
+                     {/* Download Images Button */}
+                     {hasGeneratedImages && (
+                        <button 
+                            onClick={onDownloadAllImages} 
+                            className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold py-2 px-4 rounded-lg transition-all flex items-center gap-2 shadow-md"
+                        >
+                            <ZipIcon className="h-4 w-4" />
+                            Tải tất cả ảnh
+                        </button>
+                    )}
+
                     <button onClick={onDownloadAllPrompts} className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold py-2 px-4 rounded-lg transition-all flex items-center gap-2 shadow-md">
                         <DownloadIcon className="h-4 w-4" />
                         Download XLSX
@@ -540,6 +589,7 @@ export default function App() {
   const downloadPromptsAsXLSX = useCallback((promptsToDownload: ScenePrompt[]) => {
     if (!promptsToDownload.length) return;
     try {
+      const timestamp = getTimestamp();
       const data = [
         ["STT", "Phase", "Script Line", "Image Prompt", "Video Prompt"],
         ...promptsToDownload.map(p => [p.id, p.phase, p.scriptLine, p.imagePrompt, p.videoPrompt])
@@ -548,7 +598,7 @@ export default function App() {
       worksheet['!cols'] = [{ wch: 5 }, { wch: 15 }, { wch: 60 }, { wch: 80 }, { wch: 80 }];
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Prompts");
-      XLSX.writeFile(workbook, "storyboard_pro.xlsx");
+      XLSX.writeFile(workbook, `storyboard_pro_${timestamp}.xlsx`);
     } catch (err) {
       console.error("XLSX Export Error:", err);
       setError("Không thể xuất file XLSX.");
@@ -651,6 +701,37 @@ export default function App() {
       setIsGeneratingAll(false);
   }, [apiKeys, prompts, handleGenerateImage]);
 
+  const handleDownloadAllImages = useCallback(async () => {
+      const imagesToZip = prompts.filter(p => p.generatedImageUrl);
+      if (imagesToZip.length === 0) {
+          setError("Chưa có ảnh nào được tạo để tải xuống.");
+          return;
+      }
+      
+      const zip = new JSZip();
+      const timestamp = getTimestamp();
+      
+      imagesToZip.forEach(p => {
+          if (p.generatedImageUrl) {
+              const base64Data = p.generatedImageUrl.split(',')[1];
+              zip.file(`Scene ${p.id}_${timestamp}.png`, base64Data, {base64: true});
+          }
+      });
+
+      try {
+          const content = await zip.generateAsync({type: "blob"});
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(content);
+          a.download = `storyboard_images_${timestamp}.zip`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+      } catch (err) {
+          console.error("Zip Error:", err);
+          setError("Không thể nén và tải ảnh.");
+      }
+  }, [prompts]);
+
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 p-4 md:p-6 transition-all duration-300">
       <header className="flex justify-between items-center mb-10 border-b border-slate-800 pb-6 max-w-7xl mx-auto backdrop-blur-sm sticky top-0 z-40 bg-slate-900/80">
@@ -705,6 +786,7 @@ export default function App() {
             onGenerateImage={handleGenerateImage} 
             onDownloadAllPrompts={() => downloadPromptsAsXLSX(prompts)} 
             onGenerateAll={handleGenerateAllImages}
+            onDownloadAllImages={handleDownloadAllImages}
             isGeneratingAll={isGeneratingAll}
           />
         </div>
