@@ -1089,7 +1089,11 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 p-4 md:p-6 transition-all duration-300">
       <header className="flex justify-between items-center mb-10 border-b border-slate-800 pb-6 max-w-7xl mx-auto backdrop-blur-sm sticky top-0 z-40 bg-slate-900/80">
-        <div className="flex items-center gap-4">
+        <a 
+            href="/"
+            onClick={(e) => { e.preventDefault(); window.location.reload(); }}
+            className="flex items-center gap-4 hover:opacity-80 transition-opacity cursor-pointer"
+        >
             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-black transition-all transform hover:rotate-6 ${mode === 'japan' ? 'bg-gradient-to-br from-indigo-400 to-rose-400' : 'bg-gradient-to-br from-emerald-400 to-teal-400'}`}>
                 {mode === 'japan' ? 'JP' : 'PH'}
             </div>
@@ -1102,7 +1106,7 @@ export default function App() {
                     <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">StudyAI86 - Senior Storyboarding</p>
                 </div>
             </div>
-        </div>
+        </a>
         <button onClick={() => setIsModalOpen(true)} className="bg-slate-800/80 hover:bg-slate-700 text-white font-bold py-2.5 px-5 rounded-2xl transition-all flex items-center gap-2 shadow-xl border border-slate-700 hover:scale-105 active:scale-95">
           <KeyIcon className="h-5 w-5 text-emerald-400" />
           <span className="hidden md:inline">Settings</span>
