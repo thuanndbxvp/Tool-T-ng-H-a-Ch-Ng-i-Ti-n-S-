@@ -49,7 +49,13 @@ Character: An elderly Japanese woman (70s), kind face, wrinkles, gray hair tied 
 const MAX_REFERENCE_IMAGES = 3;
 
 // Các giọng đọc hỗ trợ bởi Gemini (gemini-2.5-flash-preview-tts)
-const AVAILABLE_VOICES = ['Kore', 'Puck', 'Charon', 'Fenrir', 'Zephyr'];
+const AVAILABLE_VOICES = [
+    { id: 'Kore', name: 'Kore (Female - Calm/Relaxing)', desc: 'Thích hợp cho kể chuyện, tâm tình (Nhật/Việt)' },
+    { id: 'Puck', name: 'Puck (Male - Soft)', desc: 'Giọng nam nhẹ nhàng' },
+    { id: 'Charon', name: 'Charon (Male - Deep)', desc: 'Giọng nam trầm, dày' },
+    { id: 'Fenrir', name: 'Fenrir (Male - Intense)', desc: 'Giọng nam mạnh mẽ' },
+    { id: 'Zephyr', name: 'Zephyr (Female - Energetic)', desc: 'Giọng nữ năng động' }
+];
 
 // --- UTILITY FUNCTIONS ---
 const fileToDataUrl = (file: File): Promise<{ dataUrl: string; mimeType: string }> => {
@@ -191,11 +197,14 @@ interface ControlPanelProps {
   isStandardizing: boolean;
   standardizedScript: string | null;
   onDownloadStandardized: () => void;
+  selectedVoice: string;
+  onSelectVoice: (voice: string) => void;
 }
 const ControlPanel: FC<ControlPanelProps> = ({ 
     mode, setMode, scenario, setScenario, referenceImages, 
     onImageUpload, onScriptUpload, onBuildPrompts, isBuilding, 
-    scriptFileName, onStandardizeScript, isStandardizing, standardizedScript, onDownloadStandardized
+    scriptFileName, onStandardizeScript, isStandardizing, standardizedScript, onDownloadStandardized,
+    selectedVoice, onSelectVoice
 }) => {
   const charImgRef = useRef<HTMLInputElement>(null);
   const scriptFileRef = useRef<HTMLInputElement>(null);
@@ -225,6 +234,27 @@ const ControlPanel: FC<ControlPanelProps> = ({
       </div>
 
       <h2 className="text-xl font-bold text-emerald-400">1. Setup</h2>
+
+      {/* Voice Selection (TTS) - Placed here for session consistency visibility */}
+      <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
+        <div className="flex items-center gap-2 mb-2">
+            <SpeakerIcon className="h-4 w-4 text-emerald-400" />
+            <label className="text-sm font-bold text-slate-300">Voice Persona (TTS)</label>
+        </div>
+        <select
+            value={selectedVoice}
+            onChange={(e) => onSelectVoice(e.target.value)}
+            className="w-full bg-slate-800 border border-slate-700 p-2.5 rounded-lg focus:ring-2 focus:ring-emerald-500 transition text-white text-sm"
+        >
+            {AVAILABLE_VOICES.map(voice => (
+                <option key={voice.id} value={voice.id}>{voice.name}</option>
+            ))}
+        </select>
+        <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
+            * <b>Kore</b> là lựa chọn tốt nhất cho kể chuyện tiếng Nhật/Việt nhẹ nhàng.
+            <br/>Giọng đọc sẽ được áp dụng cho toàn bộ phiên làm việc.
+        </p>
+      </div>
       
       {mode === 'prehistoric' && (
           <div>
@@ -408,12 +438,14 @@ const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage, onGenerateAu
                 {/* Audio Section */}
                 <div className="flex flex-col justify-end">
                      {prompt.isAudioLoading ? (
-                        <div className="w-full h-10 bg-slate-800 rounded-lg flex items-center justify-center gap-2 text-sm text-slate-400">
+                        <div className="w-full h-10 bg-slate-800 rounded-lg flex items-center justify-center gap-2 text-sm text-slate-400 border border-slate-700">
                              <SpinnerIcon className="animate-spin h-4 w-4 text-indigo-500" /> Generating Voice...
                         </div>
                      ) : prompt.audioUrl ? (
                          <div className="space-y-2">
-                             <audio controls src={prompt.audioUrl} className="w-full h-10 block rounded-lg bg-slate-100" />
+                             <div className="flex items-center gap-2 bg-slate-100 rounded-lg p-1">
+                                <audio controls src={prompt.audioUrl} className="w-full h-8 block" />
+                             </div>
                              <button 
                                 onClick={() => onGenerateAudio(prompt.id)}
                                 className="w-full text-xs text-slate-500 hover:text-indigo-400 flex items-center justify-center gap-1 transition-colors"
@@ -550,12 +582,10 @@ interface ApiKeyModalProps {
     onSetActiveKey: (id: string) => void;
     selectedModel: string;
     onSelectModel: (model: string) => void;
-    selectedVoice: string;
-    onSelectVoice: (voice: string) => void;
 }
 const ApiKeyModal: FC<ApiKeyModalProps> = ({ 
     isOpen, onClose, apiKeys, onAddKey, onDeleteKey, onSetActiveKey, 
-    selectedModel, onSelectModel, selectedVoice, onSelectVoice 
+    selectedModel, onSelectModel 
 }) => {
     const [newKeyValue, setNewKeyValue] = useState('');
     const [activeProvider, setActiveProvider] = useState<ApiKey['provider']>('Google');
@@ -600,33 +630,18 @@ const ApiKeyModal: FC<ApiKeyModalProps> = ({
                     <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors text-3xl font-light">&times;</button>
                 </div>
                 <div className="space-y-8">
-                    <div className="grid grid-cols-2 gap-6">
-                        <div>
-                            <label htmlFor="model-select" className="block text-sm font-medium text-slate-300 mb-3">High-Quality Image Model</label>
-                            <select
-                                id="model-select"
-                                value={selectedModel}
-                                onChange={(e) => onSelectModel(e.target.value)}
-                                className="w-full bg-slate-800 border border-slate-700 p-3 rounded-xl focus:ring-2 focus:ring-emerald-500 transition text-white"
-                            >
-                                <option value="gemini-3-pro-image-preview">Gemini 3 Pro Image (Best)</option>
-                                <option value="gemini-2.5-flash-image">Gemini 2.5 Flash Image (Fast)</option>
-                            </select>
-                        </div>
-                        <div>
-                             <label htmlFor="voice-select" className="block text-sm font-medium text-slate-300 mb-3">TTS Voice (Giọng đọc)</label>
-                             <select
-                                id="voice-select"
-                                value={selectedVoice}
-                                onChange={(e) => onSelectVoice(e.target.value)}
-                                className="w-full bg-slate-800 border border-slate-700 p-3 rounded-xl focus:ring-2 focus:ring-emerald-500 transition text-white"
-                             >
-                                 {AVAILABLE_VOICES.map(voice => (
-                                     <option key={voice} value={voice}>{voice} (Google AI)</option>
-                                 ))}
-                             </select>
-                             <p className="text-[10px] text-slate-500 mt-1">Hỗ trợ đa ngôn ngữ (bao gồm Tiếng Nhật).</p>
-                        </div>
+                    <div>
+                        <label htmlFor="model-select" className="block text-sm font-medium text-slate-300 mb-3">High-Quality Image Model</label>
+                        <select
+                            id="model-select"
+                            value={selectedModel}
+                            onChange={(e) => onSelectModel(e.target.value)}
+                            className="w-full bg-slate-800 border border-slate-700 p-3 rounded-xl focus:ring-2 focus:ring-emerald-500 transition text-white"
+                        >
+                            <option value="gemini-3-pro-image-preview">Gemini 3 Pro Image (Best)</option>
+                            <option value="gemini-2.5-flash-image">Gemini 2.5 Flash Image (Fast)</option>
+                        </select>
+                         <p className="text-[10px] text-slate-500 mt-2">Dùng Gemini 3 Pro để có chất lượng ảnh tốt nhất (hỗ trợ 1K).</p>
                     </div>
 
                     <div>
@@ -1044,6 +1059,8 @@ export default function App() {
             isStandardizing={isStandardizing}
             standardizedScript={standardizedScript}
             onDownloadStandardized={handleDownloadStandardizedScript}
+            selectedVoice={selectedVoice}
+            onSelectVoice={handleSelectVoice}
           />
         </div>
         <div className="lg:col-span-8 xl:col-span-9">
@@ -1071,8 +1088,6 @@ export default function App() {
         onSetActiveKey={handleSetActiveKey} 
         selectedModel={selectedModel} 
         onSelectModel={handleSelectModel}
-        selectedVoice={selectedVoice}
-        onSelectVoice={handleSelectVoice}
       />
     </div>
   );
