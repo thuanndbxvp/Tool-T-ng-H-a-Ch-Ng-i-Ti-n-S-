@@ -50,12 +50,13 @@ const MAX_REFERENCE_IMAGES = 3;
 
 // Các giọng đọc hỗ trợ bởi Gemini (gemini-2.5-flash-preview-tts)
 // Zephyr được đưa lên đầu làm mặc định
+// Cập nhật mô tả giọng để phù hợp với ngữ cảnh Nhật Bản (Anime/Phim)
 const AVAILABLE_VOICES = [
-    { id: 'Zephyr', name: 'Zephyr (Female - Energetic)', desc: 'Mặc định. Giọng nữ sáng, kể chuyện tự nhiên' },
-    { id: 'Kore', name: 'Kore (Female - Calm)', desc: 'Giọng nữ trầm ấm, thư giãn (Hợp ASMR/Bà lão)' },
-    { id: 'Puck', name: 'Puck (Male - Soft)', desc: 'Giọng nam nhẹ nhàng, vui tươi' },
-    { id: 'Charon', name: 'Charon (Male - Deep)', desc: 'Giọng nam trầm, dày (Hợp phim tài liệu/Ông già)' },
-    { id: 'Fenrir', name: 'Fenrir (Male - Intense)', desc: 'Giọng nam mạnh mẽ, kịch tính' }
+    { id: 'Zephyr', name: 'Zephyr (Nữ - Anime/Sôi nổi)', desc: 'Mặc định. Giọng nữ trong, năng động (Hợp Anime/Nữ chính)' },
+    { id: 'Kore', name: 'Kore (Nữ - Trầm ấm/Bà lão)', desc: 'Giọng nữ trầm, thư giãn (Hợp ASMR/Bà lão/Kể chuyện)' },
+    { id: 'Puck', name: 'Puck (Nam - Thư sinh/Vui tươi)', desc: 'Giọng nam nhẹ nhàng, tinh nghịch (Hợp Nam chính/Hài hước)' },
+    { id: 'Charon', name: 'Charon (Nam - Uy nghiêm/Ông lão)', desc: 'Giọng nam trầm, dày (Hợp Samurai/Ông lão/Phim tài liệu)' },
+    { id: 'Fenrir', name: 'Fenrir (Nam - Kịch tính/Hành động)', desc: 'Giọng nam mạnh, gắt (Hợp Phản diện/Chiến đấu)' }
 ];
 
 // --- UTILITY FUNCTIONS ---
@@ -104,6 +105,12 @@ const UploadIcon: FC<{ className?: string }> = ({ className }) => (
 const DocumentIcon: FC<{ className?: string }> = ({ className }) => (
     <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+    </svg>
+);
+
+const TextDocumentIcon: FC<{ className?: string }> = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0h5.625M12 10.5h.008v.008H12V10.5Zm0 4.5h.008v.008H12V15Zm0 4.5h.008v.008H12v-.008ZM9.75 6.75h.75a.75.75 0 0 1 .75.75v11.25a.75.75 0 0 1-.75.75h-.75a.75.75 0 0 1-.75-.75V7.5a.75.75 0 0 1 .75-.75Zm0 0h12.375m-9.375 12h8.625" />
     </svg>
 );
 
@@ -265,8 +272,8 @@ const ControlPanel: FC<ControlPanelProps> = ({
             ))}
         </select>
         <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
-            * <b>Zephyr</b> là lựa chọn mặc định tốt nhất cho kể chuyện tự nhiên.
-            <br/>Giọng đọc sẽ được áp dụng cho toàn bộ phiên làm việc.
+            * Gemini hiện hỗ trợ 5 giọng đọc đa ngôn ngữ (Multilingual).
+            <br/>Các mô tả trên được tối ưu cho ngữ cảnh phim Nhật Bản.
         </p>
       </div>
       
@@ -482,6 +489,7 @@ interface PromptDisplayProps {
     prompts: ScenePrompt[];
     onGenerateImage: (id: number) => void;
     onDownloadAllPrompts: () => void;
+    onDownloadPromptsTxt: () => void; // New Prop
     onGenerateAll: () => void;
     onDownloadAllImages: () => void;
     isGeneratingAll: boolean;
@@ -491,7 +499,7 @@ interface PromptDisplayProps {
     isGeneratingAllAudio: boolean;
 }
 const PromptDisplay: FC<PromptDisplayProps> = ({ 
-    prompts, onGenerateImage, onDownloadAllPrompts, onGenerateAll, onDownloadAllImages, isGeneratingAll,
+    prompts, onGenerateImage, onDownloadAllPrompts, onDownloadPromptsTxt, onGenerateAll, onDownloadAllImages, isGeneratingAll,
     onGenerateAudio, onGenerateAllAudio, onDownloadAllAudio, isGeneratingAllAudio
 }) => {
     const hasMissingImages = useMemo(() => prompts.some(p => !p.generatedImageUrl), [prompts]);
@@ -574,6 +582,10 @@ const PromptDisplay: FC<PromptDisplayProps> = ({
 
                         <button onClick={onDownloadAllPrompts} className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold py-2 px-3 rounded-lg transition-all flex items-center gap-2 shadow-md">
                             <DownloadIcon className="h-4 w-4" /> Excel
+                        </button>
+
+                         <button onClick={onDownloadPromptsTxt} className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold py-2 px-3 rounded-lg transition-all flex items-center gap-2 shadow-md">
+                            <TextDocumentIcon className="h-4 w-4" /> TXT
                         </button>
                     </div>
                 </div>
@@ -818,6 +830,28 @@ export default function App() {
       setError("Không thể xuất file XLSX.");
     }
   }, []);
+
+  const handleDownloadPromptsAsTxt = useCallback(() => {
+    if (prompts.length === 0) return;
+    try {
+        const timestamp = getTimestamp();
+        // Extract script lines and join them with newlines
+        const textContent = prompts.map(p => p.scriptLine).join('\n');
+        
+        const blob = new Blob([textContent], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `script_segments_${timestamp}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    } catch (err) {
+        console.error("TXT Export Error:", err);
+        setError("Không thể xuất file TXT.");
+    }
+  }, [prompts]);
 
   const handleStandardizeScript = useCallback(async () => {
     const activeGoogleKey = apiKeys.find(k => k.provider === 'Google' && k.isActive);
@@ -1065,7 +1099,7 @@ export default function App() {
                 </h1>
                 <div className="flex items-center gap-2">
                     <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                    <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">ND Media VN - Senior Storyboarding</p>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">StudyAI86 - Senior Storyboarding</p>
                 </div>
             </div>
         </div>
@@ -1113,6 +1147,7 @@ export default function App() {
             prompts={prompts} 
             onGenerateImage={handleGenerateImage} 
             onDownloadAllPrompts={() => downloadPromptsAsXLSX(prompts)} 
+            onDownloadPromptsTxt={handleDownloadPromptsAsTxt}
             onGenerateAll={handleGenerateAllImages}
             onDownloadAllImages={handleDownloadAllImages}
             isGeneratingAll={isGeneratingAll}
