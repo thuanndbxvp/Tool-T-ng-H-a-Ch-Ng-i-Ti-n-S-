@@ -234,7 +234,9 @@ export const generateImageFromPrompt = async (prompt: string, referenceImages: I
       }
     }));
 
-    const textPart = { text: prompt };
+    // Safety Patch: Force no black bars
+    const safePrompt = prompt + (forceAspectRatio169 ? ", full screen image, no black bars, no letterboxing" : "");
+    const textPart = { text: safePrompt };
 
     const response = await ai.models.generateContent({
       model: model || 'gemini-3-pro-image-preview',

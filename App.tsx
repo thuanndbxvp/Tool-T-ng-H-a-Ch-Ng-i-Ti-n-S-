@@ -34,27 +34,28 @@ export interface ApiKey {
 
 type AppMode = 'prehistoric' | 'japan';
 
-// Cập nhật Style: Dùng keywords mạnh để khóa phong cách Photorealism
+// Cập nhật Style: Thêm Negative prompt chống viền đen
 const PREHISTORIC_STYLE = `Style: Award-winning National Geographic Photography. 
-Keywords: 8k resolution, ultra-realistic, cinematic lighting, film grain, raw photo, shallow depth of field, 45mm lens. 
-Negative prompt: cartoon, anime, 3d render, painting, drawing, illustration, low quality.
+Keywords: 8k resolution, ultra-realistic, cinematic lighting, film grain, raw photo, shallow depth of field, 45mm lens, full screen, edge to edge. 
+Negative prompt: cartoon, anime, 3d render, painting, drawing, illustration, low quality, black bars, letterboxing, cinema scope, cropped image, frame, borders.
 Character Consistency: match the uploaded reference exactly.`;
 
-// Cập nhật Style: Dùng keywords mạnh để khóa phong cách Anime Movie (Ghibli/Makoto Shinkai style)
+// Cập nhật Style: Thêm Negative prompt chống viền đen
 const JAPAN_STYLE = `Style: High-quality Anime Movie Screenshot (Studio Ghibli / Makoto Shinkai inspired). 
-Keywords: 2D hand-painted background, cell shading, soft amber lighting, nostalgic atmosphere, highly detailed, 4k, emotional art. 
-Negative prompt: 3D render, photorealistic, realistic, photograph, western cartoon, cgi, low resolution, blurry.
+Keywords: 2D hand-painted background, cell shading, soft amber lighting, nostalgic atmosphere, highly detailed, 4k, emotional art, full screen, no black bars. 
+Negative prompt: 3D render, photorealistic, realistic, photograph, western cartoon, cgi, low resolution, blurry, black bars, letterboxing, cinema scope, cropped image, frame, borders.
 Character: An elderly Japanese woman (70s), kind face, wrinkles, gray hair tied back, wearing simple domestic clothes.`;
 
 const MAX_REFERENCE_IMAGES = 3;
 
 // Các giọng đọc hỗ trợ bởi Gemini (gemini-2.5-flash-preview-tts)
+// Zephyr được đưa lên đầu làm mặc định
 const AVAILABLE_VOICES = [
-    { id: 'Kore', name: 'Kore (Female - Calm/Relaxing)', desc: 'Thích hợp cho kể chuyện, tâm tình (Nhật/Việt)' },
-    { id: 'Puck', name: 'Puck (Male - Soft)', desc: 'Giọng nam nhẹ nhàng' },
-    { id: 'Charon', name: 'Charon (Male - Deep)', desc: 'Giọng nam trầm, dày' },
-    { id: 'Fenrir', name: 'Fenrir (Male - Intense)', desc: 'Giọng nam mạnh mẽ' },
-    { id: 'Zephyr', name: 'Zephyr (Female - Energetic)', desc: 'Giọng nữ năng động' }
+    { id: 'Zephyr', name: 'Zephyr (Female - Energetic)', desc: 'Mặc định. Giọng nữ sáng, kể chuyện tự nhiên' },
+    { id: 'Kore', name: 'Kore (Female - Calm)', desc: 'Giọng nữ trầm ấm, thư giãn (Hợp ASMR/Bà lão)' },
+    { id: 'Puck', name: 'Puck (Male - Soft)', desc: 'Giọng nam nhẹ nhàng, vui tươi' },
+    { id: 'Charon', name: 'Charon (Male - Deep)', desc: 'Giọng nam trầm, dày (Hợp phim tài liệu/Ông già)' },
+    { id: 'Fenrir', name: 'Fenrir (Male - Intense)', desc: 'Giọng nam mạnh mẽ, kịch tính' }
 ];
 
 // --- UTILITY FUNCTIONS ---
@@ -199,12 +200,14 @@ interface ControlPanelProps {
   onDownloadStandardized: () => void;
   selectedVoice: string;
   onSelectVoice: (voice: string) => void;
+  onPreviewVoice: (voiceId: string) => void;
+  isVoicePreviewing: boolean;
 }
 const ControlPanel: FC<ControlPanelProps> = ({ 
     mode, setMode, scenario, setScenario, referenceImages, 
     onImageUpload, onScriptUpload, onBuildPrompts, isBuilding, 
     scriptFileName, onStandardizeScript, isStandardizing, standardizedScript, onDownloadStandardized,
-    selectedVoice, onSelectVoice
+    selectedVoice, onSelectVoice, onPreviewVoice, isVoicePreviewing
 }) => {
   const charImgRef = useRef<HTMLInputElement>(null);
   const scriptFileRef = useRef<HTMLInputElement>(null);
@@ -237,9 +240,20 @@ const ControlPanel: FC<ControlPanelProps> = ({
 
       {/* Voice Selection (TTS) - Placed here for session consistency visibility */}
       <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
-        <div className="flex items-center gap-2 mb-2">
-            <SpeakerIcon className="h-4 w-4 text-emerald-400" />
-            <label className="text-sm font-bold text-slate-300">Voice Persona (TTS)</label>
+        <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+                <SpeakerIcon className="h-4 w-4 text-emerald-400" />
+                <label className="text-sm font-bold text-slate-300">Voice Persona (TTS)</label>
+            </div>
+            {/* Preview Button */}
+            <button
+                onClick={() => onPreviewVoice(selectedVoice)}
+                disabled={isVoicePreviewing}
+                className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-wait"
+            >
+                {isVoicePreviewing ? <SpinnerIcon className="animate-spin h-3 w-3" /> : <PlayIcon className="h-3 w-3" />}
+                {isVoicePreviewing ? 'Loading...' : 'Nghe thử'}
+            </button>
         </div>
         <select
             value={selectedVoice}
@@ -247,11 +261,11 @@ const ControlPanel: FC<ControlPanelProps> = ({
             className="w-full bg-slate-800 border border-slate-700 p-2.5 rounded-lg focus:ring-2 focus:ring-emerald-500 transition text-white text-sm"
         >
             {AVAILABLE_VOICES.map(voice => (
-                <option key={voice.id} value={voice.id}>{voice.name}</option>
+                <option key={voice.id} value={voice.id}>{voice.name} - {voice.desc}</option>
             ))}
         </select>
         <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
-            * <b>Kore</b> là lựa chọn tốt nhất cho kể chuyện tiếng Nhật/Việt nhẹ nhàng.
+            * <b>Zephyr</b> là lựa chọn mặc định tốt nhất cho kể chuyện tự nhiên.
             <br/>Giọng đọc sẽ được áp dụng cho toàn bộ phiên làm việc.
         </p>
       </div>
@@ -684,10 +698,14 @@ export default function App() {
   // Audio Generation State
   const [isGeneratingAllAudio, setIsGeneratingAllAudio] = useState(false);
   
+  // Audio Preview State
+  const [isVoicePreviewing, setIsVoicePreviewing] = useState(false);
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [selectedModel, setSelectedModel] = useState('gemini-3-pro-image-preview');
-  const [selectedVoice, setSelectedVoice] = useState('Kore');
+  // Set default voice to Zephyr as requested
+  const [selectedVoice, setSelectedVoice] = useState('Zephyr');
 
   // Logic chuẩn hóa kịch bản
   const [isStandardizing, setIsStandardizing] = useState(false);
@@ -718,6 +736,31 @@ export default function App() {
       setSelectedVoice(voice);
       localStorage.setItem('selectedVoice', voice);
   }
+
+  const handlePreviewVoice = async (voiceId: string) => {
+      const activeGoogleKey = apiKeys.find(k => k.provider === 'Google' && k.isActive);
+      if (!activeGoogleKey) {
+          setError("Cần API Key Google để nghe thử.");
+          setIsModalOpen(true);
+          return;
+      }
+      
+      setIsVoicePreviewing(true);
+      setError(null);
+      
+      // Mẫu câu test giọng đa ngôn ngữ
+      const sampleText = `Hello, this is my voice. こんにちは、これは私の声です。(Xin chào, đây là giọng của tôi.)`;
+      
+      try {
+          const audioUrl = await generateSpeechFromText(sampleText, activeGoogleKey.key, voiceId);
+          const audio = new Audio(audioUrl);
+          audio.play();
+      } catch (err) {
+          setError(`Lỗi nghe thử: ${err instanceof Error ? err.message : 'Unknown'}`);
+      } finally {
+          setIsVoicePreviewing(false);
+      }
+  };
 
   const handleAddKey = (provider: ApiKey['provider'], name: string, key: string) => {
     const newKey: ApiKey = { id: crypto.randomUUID(), provider, name, key, isActive: apiKeys.filter(k => k.provider === provider).length === 0 };
@@ -1061,6 +1104,8 @@ export default function App() {
             onDownloadStandardized={handleDownloadStandardizedScript}
             selectedVoice={selectedVoice}
             onSelectVoice={handleSelectVoice}
+            onPreviewVoice={handlePreviewVoice}
+            isVoicePreviewing={isVoicePreviewing}
           />
         </div>
         <div className="lg:col-span-8 xl:col-span-9">
