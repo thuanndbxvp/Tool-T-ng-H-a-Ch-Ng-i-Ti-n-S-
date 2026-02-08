@@ -10,18 +10,22 @@ export const analyzeScriptWithAI = async (script: string, apiKey: string, styleL
   const systemInstruction = `You are a professional storyboard artist and script analyst. 
 Target Audience: Elderly women over 60 years old. 
 Story Tone: Nostalgic, gentle, slightly melancholic ("u buồn"), deeply emotional, focused on memories and everyday life. 
-Your Task: Analyze the provided script and break it down into maximum granularity. **Create a separate visual scene for EVERY SINGLE SENTENCE**. Do not group sentences together. If a sentence has multiple distinct actions or clauses, split them into separate scenes. The goal is to produce a high quantity of images to cover every moment of the script.
+
+CRITICAL VISUAL RULES:
+1. **Consistency**: You must use the EXACT SAME Style Keywords provided in "Integration" below for EVERY image prompt.
+2. **Structure**: Every image prompt must start with the Style definition, followed by the Character description, then the Action/Scene.
+3. **Granularity**: Create a separate visual scene for EVERY SINGLE SENTENCE. Do not group sentences.
+
+Your Task: Analyze the provided script and break it down.
 
 For each scene, provide:
-1. "scriptLine": The specific sentence or phrase from the script corresponding to this image.
-2. "phase": The story phase (Hook, Setup, Tension, Action, Climax, Resolution).
-3. "imagePrompt": A highly detailed visual prompt for an image generator (optimized for Gemini 3 Pro Image).
-   - Character: Often an elderly woman, aged gracefully, gentle expression, relatable to the target audience.
-   - Scene: Domestic Japanese settings, gardens, kitchens, suburban streets.
-   - Atmosphere: Soft lighting, amber glow, slightly muted colors, painterly aesthetic.
-   - Integration: ${styleLock}.
-   - Consistency: Ensure characters and environments remain constant across the scenes.
-4. "videoPrompt": Instructions for cinematic, slow-paced camera movements (e.g., slow dolly in, subtle handheld breathing).
+1. "scriptLine": The specific sentence or phrase from the script.
+2. "phase": The story phase.
+3. "imagePrompt": A highly detailed visual prompt.
+   - **Integration (MANDATORY)**: You MUST begin the prompt with this text: "${styleLock}"
+   - **Content**: Describe the scene action based on the script line.
+   - **Lighting/Atmosphere**: Ensure it matches the requested style (e.g., soft amber for Japan, dramatic for Prehistoric).
+4. "videoPrompt": Instructions for cinematic, slow-paced camera movements.
 
 OUTPUT ONLY A JSON ARRAY.`;
 

@@ -31,9 +31,17 @@ export interface ApiKey {
 
 type AppMode = 'prehistoric' | 'japan';
 
-const PREHISTORIC_STYLE = `Ultra-realistic prehistoric ASMR cinematic documentary. Primary character strictly matches 3 uploaded references (face, hair, scars, outfit). Lighting: warm amber rimlight + cool fill, fog haze. 45mm lens f/2.0 shallow DOF, film grain subtle, amber-teal tone. Somber and primal atmosphere.`;
+// Cập nhật Style: Dùng keywords mạnh để khóa phong cách Photorealism
+const PREHISTORIC_STYLE = `Style: Award-winning National Geographic Photography. 
+Keywords: 8k resolution, ultra-realistic, cinematic lighting, film grain, raw photo, shallow depth of field, 45mm lens. 
+Negative prompt: cartoon, anime, 3d render, painting, drawing, illustration, low quality.
+Character Consistency: match the uploaded reference exactly.`;
 
-const JAPAN_STYLE = `Nostalgic and emotional "Mono no aware" anime style, soft painterly textures, muted but warm colors. Designed for an audience of elderly women (60+). Focus on gentle, aging female protagonists, peaceful Japanese domesticity, and the beauty of passing time. Somber, slightly melancholic but comforting lighting (golden hour, soft shadows). Cinematic 16:9. High level of emotional detail in faces.`;
+// Cập nhật Style: Dùng keywords mạnh để khóa phong cách Anime Movie (Ghibli/Makoto Shinkai style)
+const JAPAN_STYLE = `Style: High-quality Anime Movie Screenshot (Studio Ghibli / Makoto Shinkai inspired). 
+Keywords: 2D hand-painted background, cell shading, soft amber lighting, nostalgic atmosphere, highly detailed, 4k, emotional art. 
+Negative prompt: 3D render, photorealistic, realistic, photograph, western cartoon, cgi, low resolution, blurry.
+Character: An elderly Japanese woman (70s), kind face, wrinkles, gray hair tied back, wearing simple domestic clothes.`;
 
 const MAX_REFERENCE_IMAGES = 3;
 
@@ -84,6 +92,18 @@ const CopyIcon: FC<{ className?: string }> = ({ className }) => (
 const DownloadIcon: FC<{ className?: string }> = ({ className }) => (
     <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+    </svg>
+);
+
+const RefreshIcon: FC<{ className?: string }> = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+    </svg>
+);
+
+const PlayIcon: FC<{ className?: string }> = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
     </svg>
 );
 
@@ -276,12 +296,24 @@ const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage }) => {
                 ) : prompt.generatedImageUrl ? (
                     <div className="relative group">
                       <img src={prompt.generatedImageUrl} alt={`Generated for Scene ${prompt.id}`} className="w-full aspect-video object-cover rounded-lg shadow-lg" />
-                      <button 
-                        onClick={handleImageDownload} 
-                        className="absolute top-2 right-2 bg-black/50 p-2 rounded-full text-white hover:bg-emerald-500/80 transition-all opacity-0 group-hover:opacity-100 shadow-lg"
-                      >
-                          <DownloadIcon className="h-5 w-5"/>
-                      </button>
+                      
+                      {/* Control buttons overlay */}
+                      <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                            onClick={() => onGenerateImage(prompt.id)} 
+                            className="bg-black/60 p-2 rounded-full text-white hover:bg-emerald-500 transition-colors shadow-lg"
+                            title="Tạo lại ảnh này (Regenerate)"
+                        >
+                            <RefreshIcon className="h-5 w-5"/>
+                        </button>
+                        <button 
+                            onClick={handleImageDownload} 
+                            className="bg-black/60 p-2 rounded-full text-white hover:bg-emerald-500 transition-colors shadow-lg"
+                            title="Tải ảnh xuống"
+                        >
+                            <DownloadIcon className="h-5 w-5"/>
+                        </button>
+                      </div>
                     </div>
                 ) : (
                     <button onClick={() => onGenerateImage(prompt.id)} className="w-full py-2 bg-slate-700 hover:bg-emerald-600 transition-colors rounded-lg text-sm font-semibold shadow-md border border-slate-600">
@@ -297,8 +329,10 @@ interface PromptDisplayProps {
     prompts: ScenePrompt[];
     onGenerateImage: (id: number) => void;
     onDownloadAllPrompts: () => void;
+    onGenerateAll: () => void;
+    isGeneratingAll: boolean;
 }
-const PromptDisplay: FC<PromptDisplayProps> = ({ prompts, onGenerateImage, onDownloadAllPrompts }) => {
+const PromptDisplay: FC<PromptDisplayProps> = ({ prompts, onGenerateImage, onDownloadAllPrompts, onGenerateAll, isGeneratingAll }) => {
     if (prompts.length === 0) {
         return (
             <div className="bg-slate-950/50 border border-slate-800 p-6 rounded-2xl flex items-center justify-center min-h-[50vh] shadow-inner backdrop-blur-sm">
@@ -318,6 +352,14 @@ const PromptDisplay: FC<PromptDisplayProps> = ({ prompts, onGenerateImage, onDow
                     2. AI Generated Prompts ({prompts.length} scenes)
                 </h2>
                 <div className="flex gap-2">
+                    <button 
+                        onClick={onGenerateAll} 
+                        disabled={isGeneratingAll}
+                        className={`text-xs font-bold py-2 px-4 rounded-lg transition-all flex items-center gap-2 shadow-md ${isGeneratingAll ? 'bg-slate-600 cursor-not-allowed text-slate-400' : 'bg-emerald-600 hover:bg-emerald-500 text-white'}`}
+                    >
+                        {isGeneratingAll ? <SpinnerIcon className="animate-spin h-4 w-4" /> : <PlayIcon className="h-4 w-4" />}
+                        {isGeneratingAll ? 'Đang tạo hàng loạt...' : 'Tạo tất cả ảnh'}
+                    </button>
                     <button onClick={onDownloadAllPrompts} className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold py-2 px-4 rounded-lg transition-all flex items-center gap-2 shadow-md">
                         <DownloadIcon className="h-4 w-4" />
                         Download XLSX
@@ -433,6 +475,7 @@ export default function App() {
   const [prompts, setPrompts] = useState<ScenePrompt[]>([]);
   const [isBuilding, setIsBuilding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isGeneratingAll, setIsGeneratingAll] = useState(false);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
@@ -554,7 +597,6 @@ export default function App() {
       });
 
       setPrompts(scenes);
-      downloadPromptsAsXLSX(scenes);
     } catch (err) {
       setError(`Lỗi AI: ${err instanceof Error ? err.message : 'Lỗi không xác định'}`);
     } finally {
@@ -580,6 +622,34 @@ export default function App() {
         setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, isLoading: false } : p));
     }
   }, [prompts, referenceImages, apiKeys, selectedModel, mode]);
+
+  const handleGenerateAllImages = useCallback(async () => {
+      const activeGoogleKey = apiKeys.find(k => k.provider === 'Google' && k.isActive);
+      if (!activeGoogleKey) {
+          setError("Cần API Key Google.");
+          setIsModalOpen(true);
+          return;
+      }
+      
+      setIsGeneratingAll(true);
+      
+      // Filter for items that don't have an image yet
+      const pendingItems = prompts.filter(p => !p.generatedImageUrl);
+      
+      // Generate one by one to respect rate limits and not crash UI
+      for (const item of pendingItems) {
+         try {
+             await handleGenerateImage(item.id);
+             // Small delay to be polite to the API
+             await new Promise(r => setTimeout(r, 500));
+         } catch (e) {
+             console.error(`Failed to batch generate for scene ${item.id}`, e);
+             // Continue to next item even if one fails
+         }
+      }
+      
+      setIsGeneratingAll(false);
+  }, [apiKeys, prompts, handleGenerateImage]);
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 p-4 md:p-6 transition-all duration-300">
@@ -630,7 +700,13 @@ export default function App() {
           />
         </div>
         <div className="lg:col-span-8 xl:col-span-9">
-          <PromptDisplay prompts={prompts} onGenerateImage={handleGenerateImage} onDownloadAllPrompts={() => downloadPromptsAsXLSX(prompts)} />
+          <PromptDisplay 
+            prompts={prompts} 
+            onGenerateImage={handleGenerateImage} 
+            onDownloadAllPrompts={() => downloadPromptsAsXLSX(prompts)} 
+            onGenerateAll={handleGenerateAllImages}
+            isGeneratingAll={isGeneratingAll}
+          />
         </div>
       </main>
       
