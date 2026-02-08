@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useCallback, FC, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
-import { generateImageFromPrompt } from './services/geminiService';
+import { generateImageFromPrompt, analyzeScriptWithAI } from './services/geminiService';
 
 // --- TYPES & CONSTANTS ---
 export interface ImageFile {
@@ -31,9 +31,9 @@ export interface ApiKey {
 
 type AppMode = 'prehistoric' | 'japan';
 
-const PREHISTORIC_STYLE = `Ultra-realistic prehistoric ASMR cinematic documentary. Primary character strictly matches 3 uploaded references (face, hair, scars, outfit). Lighting: warm amber rimlight + cool fill, fog haze. 45mm lens f/2.0 shallow DOF, film grain subtle, amber-teal tone.`;
+const PREHISTORIC_STYLE = `Ultra-realistic prehistoric ASMR cinematic documentary. Primary character strictly matches 3 uploaded references (face, hair, scars, outfit). Lighting: warm amber rimlight + cool fill, fog haze. 45mm lens f/2.0 shallow DOF, film grain subtle, amber-teal tone. Somber and primal atmosphere.`;
 
-const JAPAN_STYLE = `High-quality modern slice-of-life anime style, 2D hand-drawn animation aesthetic. Clear lines, vibrant but natural colors, emotional lighting. Backgrounds are detailed (Japanese interiors, suburban streets, convenience stores, kitchen with fridge). Cinematic 16:9 aspect ratio. Character has expressive features and soft shading.`;
+const JAPAN_STYLE = `Nostalgic and emotional "Mono no aware" anime style, soft painterly textures, muted but warm colors. Designed for an audience of elderly women (60+). Focus on gentle, aging female protagonists, peaceful Japanese domesticity, and the beauty of passing time. Somber, slightly melancholic but comforting lighting (golden hour, soft shadows). Cinematic 16:9. High level of emotional detail in faces.`;
 
 const MAX_REFERENCE_IMAGES = 3;
 
@@ -51,32 +51,15 @@ const dataUrlToBase64 = (dataUrl: string): string => {
   return dataUrl.split(',')[1];
 };
 
-const parseSrt = (content: string): string[] => {
-  // Simple SRT parser: remove indices and timestamps
+const parseSrt = (content: string): string => {
   const lines = content.replace(/\r/g, '').split('\n');
-  const dialogueLines: string[] = [];
-  let currentDialogue = "";
-
+  let dialogue = "";
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
-    if (!line) {
-        if (currentDialogue) dialogueLines.push(currentDialogue.trim());
-        currentDialogue = "";
-        continue;
-    }
-    // Skip index and timestamp lines
-    if (/^\d+$/.test(line)) continue;
-    if (line.includes('-->')) continue;
-    
-    currentDialogue += " " + line;
+    if (!line || /^\d+$/.test(line) || line.includes('-->')) continue;
+    dialogue += " " + line;
   }
-  if (currentDialogue) dialogueLines.push(currentDialogue.trim());
-  return dialogueLines;
-};
-
-const splitIntoSentences = (text: string): string[] => {
-    // Splits by period, question mark, or exclamation followed by space/newline
-    return text.split(/[.?!](?:\s+|$)/).filter(s => s.trim().length > 5);
+  return dialogue.trim();
 };
 
 // --- UI ICONS ---
@@ -148,7 +131,7 @@ const ControlPanel: FC<ControlPanelProps> = ({ mode, setMode, scenario, setScena
   }, [mode, referenceImages, scenario, scriptFileName]);
 
   return (
-    <div className="bg-slate-950/50 border border-slate-800 p-6 rounded-2xl flex flex-col gap-6 sticky top-6">
+    <div className="bg-slate-950/50 border border-slate-800 p-6 rounded-2xl flex flex-col gap-6 sticky top-6 shadow-2xl backdrop-blur-md">
       <div className="flex bg-slate-800 p-1 rounded-xl">
         <button 
             onClick={() => setMode('prehistoric')}
@@ -182,7 +165,7 @@ const ControlPanel: FC<ControlPanelProps> = ({ mode, setMode, scenario, setScena
             {referenceImages.length > 0 && (
               <div className="mt-4 grid grid-cols-3 gap-4">
                 {referenceImages.map((img) => (
-                  <img key={img.name} src={img.dataUrl} alt={img.name} className="rounded-md object-cover aspect-square" />
+                  <img key={img.name} src={img.dataUrl} alt={img.name} className="rounded-md object-cover aspect-square border border-slate-700 shadow-sm" />
                 ))}
               </div>
             )}
@@ -193,9 +176,9 @@ const ControlPanel: FC<ControlPanelProps> = ({ mode, setMode, scenario, setScena
         <label className="block text-sm font-medium text-slate-300 mb-2">📄 Upload Script (.txt, .srt)</label>
         <div 
             onClick={() => scriptFileRef.current?.click()}
-            className="flex items-center gap-3 bg-slate-800 border border-slate-700 hover:border-emerald-500 p-3 rounded-md cursor-pointer transition-colors"
+            className="flex items-center gap-3 bg-slate-800 border border-slate-700 hover:border-emerald-500 p-3 rounded-md cursor-pointer transition-colors group"
         >
-            <DocumentIcon className="h-5 w-5 text-emerald-400" />
+            <DocumentIcon className="h-5 w-5 text-emerald-400 group-hover:scale-110 transition-transform" />
             <span className="text-sm text-slate-300 truncate">{scriptFileName || 'Chọn file kịch bản...'}</span>
         </div>
         <input ref={scriptFileRef} type="file" accept=".txt,.srt" onChange={onScriptUpload} className="hidden" />
@@ -209,9 +192,9 @@ const ControlPanel: FC<ControlPanelProps> = ({ mode, setMode, scenario, setScena
           onChange={(e) => setScenario(e.target.value)}
           placeholder="Nhập nội dung kịch bản tại đây..."
           rows={6}
-          className="w-full bg-slate-800 border border-slate-700 p-3 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+          className="w-full bg-slate-800 border border-slate-700 p-3 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-inner text-white text-sm"
         ></textarea>
-        <p className="text-[10px] text-slate-500 mt-1 italic">* Công cụ sẽ tự động tách câu để tạo phân cảnh.</p>
+        <p className="text-[10px] text-slate-500 mt-1 italic font-semibold text-emerald-400/80">* Powered by Gemini 3 Pro Preview (Reasoning Model)</p>
       </div>
 
       <button
@@ -221,10 +204,10 @@ const ControlPanel: FC<ControlPanelProps> = ({ mode, setMode, scenario, setScena
             mode === 'prehistoric' 
                 ? 'text-black bg-emerald-500 hover:bg-emerald-400' 
                 : 'text-white bg-indigo-600 hover:bg-indigo-500'
-        } disabled:bg-slate-600 disabled:text-slate-400 disabled:cursor-not-allowed`}
+        } disabled:bg-slate-600 disabled:text-slate-400 disabled:cursor-not-allowed shadow-lg`}
       >
         {isBuilding ? <SpinnerIcon className="animate-spin h-5 w-5 mr-2" /> : null}
-        {isBuilding ? 'Processing...' : 'Generate Prompts'}
+        {isBuilding ? 'AI is analyzing...' : 'Generate Pro Storyboard'}
       </button>
     </div>
   );
@@ -254,11 +237,11 @@ const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage }) => {
     };
 
     return (
-        <div className="bg-slate-950/30 border border-slate-800 p-4 rounded-xl transition-all hover:border-slate-700">
+        <div className="bg-slate-950/30 border border-slate-800 p-4 rounded-xl transition-all hover:border-slate-700 animate-fade-in shadow-sm">
             <div className="flex justify-between items-start mb-3">
                 <div className="flex-1 pr-4">
                     <h3 className="font-semibold text-emerald-400 mb-1">Scene {prompt.id}</h3>
-                    <p className="text-xs text-slate-400 italic">"{prompt.scriptLine}"</p>
+                    <p className="text-xs text-slate-300 leading-relaxed italic">"{prompt.scriptLine}"</p>
                 </div>
                 <span className="text-xs font-medium bg-slate-700 text-slate-300 px-2 py-1 rounded-full whitespace-nowrap">{prompt.phase}</span>
             </div>
@@ -271,7 +254,7 @@ const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage }) => {
                             {copied === 'image' ? 'Copied!' : <CopyIcon className="h-4 w-4" />}
                         </button>
                     </div>
-                    <pre className="text-xs whitespace-pre-wrap bg-slate-800/50 p-3 rounded-md font-mono text-slate-400 h-24 overflow-y-auto">{prompt.imagePrompt}</pre>
+                    <pre className="text-xs whitespace-pre-wrap bg-slate-800/50 p-3 rounded-md font-mono text-slate-400 h-24 overflow-y-auto border border-slate-700">{prompt.imagePrompt}</pre>
                 </div>
                 
                 <div className="space-y-2">
@@ -281,7 +264,7 @@ const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage }) => {
                             {copied === 'video' ? 'Copied!' : <CopyIcon className="h-4 w-4" />}
                         </button>
                     </div>
-                    <pre className="text-xs whitespace-pre-wrap bg-slate-800/50 p-3 rounded-md font-mono text-slate-400 h-24 overflow-y-auto">{prompt.videoPrompt}</pre>
+                    <pre className="text-xs whitespace-pre-wrap bg-slate-800/50 p-3 rounded-md font-mono text-slate-400 h-24 overflow-y-auto border border-slate-700">{prompt.videoPrompt}</pre>
                 </div>
             </div>
 
@@ -292,17 +275,17 @@ const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage }) => {
                      </div>
                 ) : prompt.generatedImageUrl ? (
                     <div className="relative group">
-                      <img src={prompt.generatedImageUrl} alt={`Generated for Scene ${prompt.id}`} className="w-full aspect-video object-cover rounded-lg" />
+                      <img src={prompt.generatedImageUrl} alt={`Generated for Scene ${prompt.id}`} className="w-full aspect-video object-cover rounded-lg shadow-lg" />
                       <button 
                         onClick={handleImageDownload} 
-                        className="absolute top-2 right-2 bg-black/50 p-2 rounded-full text-white hover:bg-emerald-500/80 transition-all opacity-0 group-hover:opacity-100"
+                        className="absolute top-2 right-2 bg-black/50 p-2 rounded-full text-white hover:bg-emerald-500/80 transition-all opacity-0 group-hover:opacity-100 shadow-lg"
                       >
                           <DownloadIcon className="h-5 w-5"/>
                       </button>
                     </div>
                 ) : (
-                    <button onClick={() => onGenerateImage(prompt.id)} className="w-full py-2 bg-slate-700 hover:bg-emerald-600 transition-colors rounded-lg text-sm font-semibold">
-                        Generate Image
+                    <button onClick={() => onGenerateImage(prompt.id)} className="w-full py-2 bg-slate-700 hover:bg-emerald-600 transition-colors rounded-lg text-sm font-semibold shadow-md border border-slate-600">
+                        Generate Image (Gemini 3 Pro)
                     </button>
                 )}
             </div>
@@ -318,27 +301,30 @@ interface PromptDisplayProps {
 const PromptDisplay: FC<PromptDisplayProps> = ({ prompts, onGenerateImage, onDownloadAllPrompts }) => {
     if (prompts.length === 0) {
         return (
-            <div className="bg-slate-950/50 border border-slate-800 p-6 rounded-2xl flex items-center justify-center min-h-[50vh]">
-                <div className="text-center text-slate-500">
-                    <h2 className="text-xl font-bold">Prompts will appear here</h2>
-                    <p>Complete the setup on the left to generate prompts.</p>
+            <div className="bg-slate-950/50 border border-slate-800 p-6 rounded-2xl flex items-center justify-center min-h-[50vh] shadow-inner backdrop-blur-sm">
+                <div className="text-center text-slate-500 max-w-sm">
+                    <h2 className="text-xl font-bold text-slate-400 mb-2">Chưa có phân cảnh nào</h2>
+                    <p className="text-sm">Tải lên kịch bản và nhấn "Generate Pro Storyboard" để AI bắt đầu phân tách và tạo prompt hình ảnh.</p>
                 </div>
             </div>
         );
     }
     
     return (
-        <div className="bg-slate-950/50 border border-slate-800 p-6 rounded-2xl">
+        <div className="bg-slate-950/50 border border-slate-800 p-6 rounded-2xl animate-fade-in shadow-xl backdrop-blur-sm">
             <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
-                <h2 className="text-xl font-bold text-emerald-400">2. Generated Prompts ({prompts.length} scenes)</h2>
+                <h2 className="text-xl font-bold text-emerald-400 flex items-center gap-2">
+                    <span className="w-2 h-8 bg-emerald-500 rounded-full"></span>
+                    2. AI Generated Prompts ({prompts.length} scenes)
+                </h2>
                 <div className="flex gap-2">
-                    <button onClick={onDownloadAllPrompts} className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold py-2 px-3 rounded-lg transition-colors flex items-center gap-2">
+                    <button onClick={onDownloadAllPrompts} className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold py-2 px-4 rounded-lg transition-all flex items-center gap-2 shadow-md">
                         <DownloadIcon className="h-4 w-4" />
                         Download XLSX
                     </button>
                 </div>
             </div>
-             <div className="space-y-4 max-h-[85vh] overflow-y-auto pr-2">
+             <div className="space-y-4 max-h-[85vh] overflow-y-auto pr-2 custom-scrollbar">
                 {prompts.map((p) => (
                     <PromptCard key={p.id} prompt={p} onGenerateImage={onGenerateImage} />
                 ))}
@@ -376,60 +362,61 @@ const ApiKeyModal: FC<ApiKeyModalProps> = ({ isOpen, onClose, apiKeys, onAddKey,
 
     const renderKeyList = (provider: ApiKey['provider']) => (
         apiKeys.filter(k => k.provider === provider).map(key => (
-            <div key={key.id} className="flex items-center justify-between bg-slate-800 p-2 rounded-md">
+            <div key={key.id} className="flex items-center justify-between bg-slate-800 p-3 rounded-xl border border-slate-700 shadow-sm">
                 <div className="flex flex-col text-sm">
                     <span className="font-semibold text-white">{key.name}</span>
                     <span className="text-slate-400 font-mono text-xs">{maskKey(key.key)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                     {key.isActive ? (
-                        <span className="text-xs font-bold text-emerald-400 bg-emerald-900/50 px-2 py-1 rounded-full">ACTIVE</span>
+                        <span className="text-xs font-bold text-emerald-400 bg-emerald-900/50 px-2 py-1 rounded-full border border-emerald-500/30">ACTIVE</span>
                     ) : (
-                        <button onClick={() => onSetActiveKey(key.id)} className="text-xs font-semibold text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded-md transition">Set Active</button>
+                        <button onClick={() => onSetActiveKey(key.id)} className="text-xs font-semibold text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-md transition shadow-sm">Set Active</button>
                     )}
-                    <button onClick={() => onDeleteKey(key.id)} className="text-slate-400 hover:text-red-500 p-1 rounded-md transition"><TrashIcon className="h-4 w-4" /></button>
+                    <button onClick={() => onDeleteKey(key.id)} className="text-slate-400 hover:text-red-500 p-1.5 rounded-md transition bg-slate-700/50 hover:bg-slate-700 shadow-sm"><TrashIcon className="h-4 w-4" /></button>
                 </div>
             </div>
         ))
     );
     
     return (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-fade-in">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-emerald-400">API & Model Settings</h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-white">&times;</button>
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-fade-in backdrop-blur-md">
+            <div className="bg-slate-900 border border-slate-700 rounded-3xl p-8 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto shadow-2xl relative">
+                <div className="flex justify-between items-center mb-8">
+                    <h2 className="text-3xl font-bold text-emerald-400">Settings</h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors text-3xl font-light">&times;</button>
                 </div>
-                <div className="space-y-6">
+                <div className="space-y-8">
                     <div>
-                        <label htmlFor="model-select" className="block text-sm font-medium text-slate-300 mb-2">Active AI Model</label>
+                        <label htmlFor="model-select" className="block text-sm font-medium text-slate-300 mb-3">High-Quality Image Model</label>
                         <select
                             id="model-select"
                             value={selectedModel}
                             onChange={(e) => onSelectModel(e.target.value)}
-                            className="w-full bg-slate-800 border border-slate-700 p-3 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+                            className="w-full bg-slate-800 border border-slate-700 p-4 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-inner text-white appearance-none"
                         >
-                            <option value="gemini-2.5-flash-image">Gemini 2.5 Flash Image</option>
-                            <option value="gemini-3-pro-image-preview">Gemini 3 Pro Image (High Qual)</option>
+                            <option value="gemini-3-pro-image-preview">Gemini 3 Pro Image (Best Quality - Recommended)</option>
+                            <option value="gemini-2.5-flash-image">Gemini 2.5 Flash Image (Fast - Lower Quality)</option>
                         </select>
+                        <p className="text-[10px] text-slate-500 mt-2 italic">* Phân tách kịch bản luôn sử dụng model mạnh nhất: Gemini 3 Pro Preview.</p>
                     </div>
                     <div>
-                        <div className="border-b border-slate-700 mb-4">
-                            <nav className="-mb-px flex space-x-4">
-                                <button onClick={() => setActiveProvider('Google')} className={`${activeProvider === 'Google' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-slate-400 hover:text-white hover:border-slate-500'} whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors`}>Google AI</button>
-                                <button onClick={() => setActiveProvider('OpenAI')} className={`${activeProvider === 'OpenAI' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-slate-400 hover:text-white hover:border-slate-500'} whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors`}>OpenAI</button>
+                        <div className="border-b border-slate-700 mb-6">
+                            <nav className="-mb-px flex space-x-6">
+                                <button onClick={() => setActiveProvider('Google')} className={`${activeProvider === 'Google' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-slate-400 hover:text-white hover:border-slate-500'} whitespace-nowrap py-4 px-1 border-b-2 font-semibold text-sm transition-colors`}>Google AI (Bắt buộc)</button>
+                                <button onClick={() => setActiveProvider('OpenAI')} className={`${activeProvider === 'OpenAI' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-slate-400 hover:text-white hover:border-slate-500'} whitespace-nowrap py-4 px-1 border-b-2 font-semibold text-sm transition-colors`}>OpenAI</button>
                             </nav>
                         </div>
-                        <div className="space-y-3 p-1">
-                             <div className="flex flex-col md:flex-row gap-2">
-                                <input type="text" placeholder="Nickname" value={newKeyName} onChange={e => setNewKeyName(e.target.value)} className="flex-grow bg-slate-800 border border-slate-700 p-2 rounded-md focus:ring-1 focus:ring-emerald-500 transition text-sm" />
-                                <input type="password" placeholder="API Key" value={newKeyValue} onChange={e => setNewKeyValue(e.target.value)} className="flex-grow bg-slate-800 border border-slate-700 p-2 rounded-md focus:ring-1 focus:ring-emerald-500 transition text-sm" />
-                                <button onClick={handleAdd} className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2 rounded-md transition text-sm">Add Key</button>
+                        <div className="space-y-4 p-1">
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <input type="text" placeholder="Tên gợi nhớ" value={newKeyName} onChange={e => setNewKeyName(e.target.value)} className="bg-slate-800 border border-slate-700 p-3.5 rounded-xl focus:ring-2 focus:ring-emerald-500 transition text-sm text-white shadow-inner" />
+                                <input type="password" placeholder="Dán API Key vào đây" value={newKeyValue} onChange={e => setNewKeyValue(e.target.value)} className="bg-slate-800 border border-slate-700 p-3.5 rounded-xl focus:ring-2 focus:ring-emerald-500 transition text-sm text-white shadow-inner" />
                             </div>
+                            <button onClick={handleAdd} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg active:scale-95">Thêm API Key mới</button>
                         </div>
-                        <div className="mt-4 space-y-2">
+                        <div className="mt-6 space-y-3">
                              {renderKeyList(activeProvider)}
-                             {apiKeys.filter(k => k.provider === activeProvider).length === 0 && <p className="text-center text-slate-500 text-sm py-4">No {activeProvider} keys added yet.</p>}
+                             {apiKeys.filter(k => k.provider === activeProvider).length === 0 && <p className="text-center text-slate-500 text-sm py-6">Chưa có API Key nào được lưu cho {activeProvider}.</p>}
                         </div>
                     </div>
                 </div>
@@ -439,7 +426,7 @@ const ApiKeyModal: FC<ApiKeyModalProps> = ({ isOpen, onClose, apiKeys, onAddKey,
 };
 
 export default function App() {
-  const [mode, setMode] = useState<AppMode>('prehistoric');
+  const [mode, setMode] = useState<AppMode>('japan'); 
   const [scenario, setScenario] = useState("");
   const [scriptFileContent, setScriptFileContent] = useState<string | null>(null);
   const [scriptFileName, setScriptFileName] = useState<string | null>(null);
@@ -450,7 +437,7 @@ export default function App() {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
-  const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash-image');
+  const [selectedModel, setSelectedModel] = useState('gemini-3-pro-image-preview');
 
   useEffect(() => {
     try {
@@ -493,7 +480,7 @@ export default function App() {
               return { name: file.name, dataUrl, base64: dataUrlToBase64(dataUrl), mimeType };
           });
           setReferenceImages(await Promise.all(imagePromises));
-      } catch (err) { setError('Failed to read image files.'); }
+      } catch (err) { setError('Lỗi khi đọc file ảnh.'); }
   }, []);
 
   const handleScriptUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -503,112 +490,133 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = (ev) => {
         setScriptFileContent(ev.target?.result as string);
-        setScenario(""); // Clear manual input if file uploaded
+        setScenario("");
     };
     reader.readAsText(file);
   }, []);
 
   const downloadPromptsAsXLSX = useCallback((promptsToDownload: ScenePrompt[]) => {
     if (!promptsToDownload.length) return;
-    const worksheet = XLSX.utils.aoa_to_sheet([["STT", "Phase", "Original Line", "Image Prompt", "Video Prompt"], ...promptsToDownload.map(p => [p.id, p.phase, p.scriptLine, p.imagePrompt, p.videoPrompt])]);
-    worksheet['!cols'] = [{ wch: 5 }, { wch: 15 }, { wch: 40 }, { wch: 80 }, { wch: 80 }];
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Prompts");
-    XLSX.writeFile(workbook, "prompts.xlsx");
+    try {
+      const data = [
+        ["STT", "Phase", "Script Line", "Image Prompt", "Video Prompt"],
+        ...promptsToDownload.map(p => [p.id, p.phase, p.scriptLine, p.imagePrompt, p.videoPrompt])
+      ];
+      const worksheet = XLSX.utils.aoa_to_sheet(data);
+      worksheet['!cols'] = [{ wch: 5 }, { wch: 15 }, { wch: 60 }, { wch: 80 }, { wch: 80 }];
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Prompts");
+      XLSX.writeFile(workbook, "storyboard_pro.xlsx");
+    } catch (err) {
+      console.error("XLSX Export Error:", err);
+      setError("Không thể xuất file XLSX.");
+    }
   }, []);
 
-  const handleBuildPrompts = useCallback(() => {
+  const handleBuildPrompts = useCallback(async () => {
+    const activeGoogleKey = apiKeys.find(k => k.provider === 'Google' && k.isActive);
+    if (!activeGoogleKey) {
+        setError("Cần API Key Google để AI phân tích kịch bản.");
+        setIsModalOpen(true);
+        return;
+    }
+
     if (mode === 'prehistoric' && referenceImages.length < MAX_REFERENCE_IMAGES) {
-      setError(`Vui lòng upload ${MAX_REFERENCE_IMAGES} ảnh tham chiếu cho chế độ Người Tiền Sử.`);
+      setError(`Cần đủ ${MAX_REFERENCE_IMAGES} ảnh tham chiếu.`);
       return;
     }
+
     setIsBuilding(true);
     setError(null);
 
-    setTimeout(() => {
-      let scriptLines: string[] = [];
+    try {
+      let fullScript = "";
       if (scriptFileContent && scriptFileName) {
-          if (scriptFileName.endsWith('.srt')) {
-              scriptLines = parseSrt(scriptFileContent);
-          } else {
-              scriptLines = scriptFileContent.split(/\n+/).filter(l => l.trim().length > 5);
-          }
-      } else if (scenario.trim()) {
-          scriptLines = splitIntoSentences(scenario);
+          fullScript = scriptFileName.endsWith('.srt') ? parseSrt(scriptFileContent) : scriptFileContent;
+      } else {
+          fullScript = scenario;
       }
 
-      if (scriptLines.length === 0) {
-          setError("Không tìm thấy nội dung kịch bản hợp lệ.");
-          setIsBuilding(false);
-          return;
+      if (!fullScript.trim()) {
+          throw new Error("Vui lòng nhập hoặc tải kịch bản.");
       }
 
-      const scenes: ScenePrompt[] = [];
       const styleLock = mode === 'prehistoric' ? PREHISTORIC_STYLE : JAPAN_STYLE;
+      const aiScenes = await analyzeScriptWithAI(fullScript, activeGoogleKey.key, styleLock, mode);
 
-      scriptLines.forEach((line, index) => {
-        const id = index + 1;
-        // Basic phase estimation based on progress
-        let phase = "Sequence";
-        const progress = (index / scriptLines.length);
-        if (progress < 0.1) phase = "Hook";
-        else if (progress < 0.3) phase = "Setup";
-        else if (progress < 0.7) phase = "Main Action";
-        else phase = "Closure";
-
-        const imagePrompt = `${styleLock} Action: ${line.trim()}. High detail, 16:9, cinematic. No text.`;
-        const videoPrompt = `Animate the scene: "${line.trim()}". ${mode === 'prehistoric' ? 'Realistic motion, handheld sway' : 'Smooth anime motion, 2D animation style'}, 16:9, duration 8s.`;
-        
-        scenes.push({ id, phase, scriptLine: line.trim(), imagePrompt, videoPrompt });
+      const scenes: ScenePrompt[] = aiScenes.map((scene, index) => {
+          return {
+              id: index + 1,
+              phase: scene.phase || "Sequence",
+              scriptLine: scene.scriptLine,
+              imagePrompt: scene.imagePrompt,
+              videoPrompt: scene.videoPrompt
+          };
       });
 
       setPrompts(scenes);
       downloadPromptsAsXLSX(scenes);
+    } catch (err) {
+      setError(`Lỗi AI: ${err instanceof Error ? err.message : 'Lỗi không xác định'}`);
+    } finally {
       setIsBuilding(false);
-    }, 500);
-  }, [mode, referenceImages.length, scenario, scriptFileContent, scriptFileName, downloadPromptsAsXLSX]);
+    }
+  }, [mode, referenceImages, scenario, scriptFileContent, scriptFileName, apiKeys, downloadPromptsAsXLSX]);
 
   const handleGenerateImage = useCallback(async (sceneId: number) => {
     const promptToGenerate = prompts.find(p => p.id === sceneId);
     if (!promptToGenerate) return;
     const activeGoogleKey = apiKeys.find(k => k.provider === 'Google' && k.isActive);
     if (!activeGoogleKey) {
-        setError("Vui lòng thêm API Key Google trong phần Settings.");
+        setError("Cần API Key Google.");
         setIsModalOpen(true);
         return;
     }
     setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, isLoading: true } : p));
     try {
-        const imageUrl = await generateImageFromPrompt(promptToGenerate.imagePrompt, mode === 'prehistoric' ? referenceImages : [], activeGoogleKey.key, selectedModel, mode === 'japan');
+        const imageUrl = await generateImageFromPrompt(promptToGenerate.imagePrompt, mode === 'prehistoric' ? referenceImages : [], activeGoogleKey.key, selectedModel, true);
         setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, generatedImageUrl: imageUrl, isLoading: false } : p));
     } catch (err) {
-        setError(`Lỗi Scene ${sceneId}: ${err instanceof Error ? err.message : 'Unknown'}`);
+        setError(`Lỗi tạo ảnh Scene ${sceneId}: ${err instanceof Error ? err.message : 'Unknown'}`);
         setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, isLoading: false } : p));
     }
   }, [prompts, referenceImages, apiKeys, selectedModel, mode]);
 
   return (
-    <div className="min-h-screen bg-black text-white p-4 md:p-6">
-      <header className="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
-        <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center font-bold text-black">ND</div>
-            <h1 className="text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-indigo-400">
-                Media Storyboard VN
-            </h1>
+    <div className="min-h-screen bg-slate-900 text-slate-100 p-4 md:p-6 transition-all duration-300">
+      <header className="flex justify-between items-center mb-10 border-b border-slate-800 pb-6 max-w-7xl mx-auto backdrop-blur-sm sticky top-0 z-40 bg-slate-900/80">
+        <div className="flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-black transition-all transform hover:rotate-6 ${mode === 'japan' ? 'bg-gradient-to-br from-indigo-400 to-rose-400' : 'bg-gradient-to-br from-emerald-400 to-teal-400'}`}>
+                {mode === 'japan' ? 'JP' : 'PH'}
+            </div>
+            <div>
+                <h1 className="text-2xl md:text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-rose-400 tracking-tight">
+                    AI Storyboard Studio Pro
+                </h1>
+                <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">ND Media VN - Senior Storyboarding</p>
+                </div>
+            </div>
         </div>
-        <button onClick={() => setIsModalOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-white font-semibold py-2 px-3 rounded-lg transition-colors flex items-center gap-2">
-          <KeyIcon className="h-5 w-5" />
-          <span className="hidden md:inline">API Settings</span>
+        <button onClick={() => setIsModalOpen(true)} className="bg-slate-800/80 hover:bg-slate-700 text-white font-bold py-2.5 px-5 rounded-2xl transition-all flex items-center gap-2 shadow-xl border border-slate-700 hover:scale-105 active:scale-95">
+          <KeyIcon className="h-5 w-5 text-emerald-400" />
+          <span className="hidden md:inline">Settings</span>
         </button>
       </header>
+      
       {error && (
-        <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-3 rounded-lg mb-6 flex justify-between items-center animate-fade-in" role="alert">
-            <span><strong className="font-bold">Lỗi: </strong>{error}</span>
-            <button onClick={() => setError(null)} className="ml-4">&times;</button>
+        <div className="max-w-7xl mx-auto bg-red-900/30 border border-red-700/50 text-red-200 px-8 py-5 rounded-3xl mb-10 flex justify-between items-center animate-fade-in shadow-2xl backdrop-blur-md" role="alert">
+            <div className="flex items-center gap-4">
+                <div className="bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-black shadow-lg">!</div>
+                <span className="text-sm font-medium leading-relaxed">{error}</span>
+            </div>
+            <button onClick={() => setError(null)} className="text-3xl leading-none hover:text-white transition-colors p-2">&times;</button>
         </div>
       )}
-      <main className="grid lg:grid-cols-3 gap-6 items-start">
-        <div className="lg:col-span-1">
+
+      <main className="max-w-7xl mx-auto grid lg:grid-cols-12 gap-10 items-start">
+        <div className="lg:col-span-4 xl:col-span-3">
           <ControlPanel 
             mode={mode} 
             setMode={setMode} 
@@ -622,10 +630,11 @@ export default function App() {
             scriptFileName={scriptFileName}
           />
         </div>
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-8 xl:col-span-9">
           <PromptDisplay prompts={prompts} onGenerateImage={handleGenerateImage} onDownloadAllPrompts={() => downloadPromptsAsXLSX(prompts)} />
         </div>
       </main>
+      
       <ApiKeyModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} apiKeys={apiKeys} onAddKey={handleAddKey} onDeleteKey={handleDeleteKey} onSetActiveKey={handleSetActiveKey} selectedModel={selectedModel} onSelectModel={handleSelectModel} />
     </div>
   );
