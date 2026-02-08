@@ -2,23 +2,132 @@
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { ImageFile } from '../App';
 
+// Helper: Chuyển đổi Raw PCM (Int16) sang WAV file (có header) để trình duyệt có thể phát
+const pcmToWav = (pcmData: Int16Array, sampleRate: number = 24000): Blob => {
+  const numChannels = 1;
+  const bitsPerSample = 16;
+  const byteRate = (sampleRate * numChannels * bitsPerSample) / 8;
+  const blockAlign = (numChannels * bitsPerSample) / 8;
+  const dataSize = pcmData.length * 2; // 2 bytes per sample
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buffer);
+
+  // RIFF chunk descriptor
+  writeString(view, 0, 'RIFF');
+  view.setUint32(4, 36 + dataSize, true);
+  writeString(view, 8, 'WAVE');
+
+  // fmt sub-chunk
+  writeString(view, 12, 'fmt ');
+  view.setUint32(16, 16, true); // Subchunk1Size (16 for PCM)
+  view.setUint16(20, 1, true); // AudioFormat (1 for PCM)
+  view.setUint16(22, numChannels, true); // NumChannels
+  view.setUint32(24, sampleRate, true); // SampleRate
+  view.setUint32(28, byteRate, true); // ByteRate
+  view.setUint16(32, blockAlign, true); // BlockAlign
+  view.setUint16(34, bitsPerSample, true); // BitsPerSample
+
+  // data sub-chunk
+  writeString(view, 36, 'data');
+  view.setUint32(40, dataSize, true);
+
+  // Write PCM samples
+  let offset = 44;
+  for (let i = 0; i < pcmData.length; i++, offset += 2) {
+    view.setInt16(offset, pcmData[i], true);
+  }
+
+  return new Blob([view], { type: 'audio/wav' });
+};
+
+const writeString = (view: DataView, offset: number, string: string) => {
+  for (let i = 0; i < string.length; i++) {
+    view.setUint8(offset + i, string.charCodeAt(i));
+  }
+};
+
+const decodeBase64ToInt16Array = (base64: string): Int16Array => {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  // Convert Uint8Array (bytes) to Int16Array (PCM 16-bit)
+  return new Int16Array(bytes.buffer);
+};
+
+
+export const generateSpeechFromText = async (text: string, apiKey: string, voiceName: string = 'Kore'): Promise<string> => {
+  if (!apiKey) throw new Error("Vui lòng cấu hình API Key Google.");
+
+  const ai = new GoogleGenAI({ apiKey });
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-preview-tts",
+      contents: {
+        parts: [{ text: text }]
+      },
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: voiceName },
+          },
+        },
+      },
+    });
+
+    const candidate = response.candidates?.[0];
+    if (!candidate) throw new Error("Không nhận được phản hồi âm thanh.");
+
+    let base64Audio = "";
+    
+    for (const part of candidate.content.parts) {
+      if (part.inlineData && part.inlineData.data) {
+        base64Audio = part.inlineData.data;
+        break;
+      }
+    }
+
+    if (!base64Audio) throw new Error("Không tìm thấy dữ liệu âm thanh.");
+
+    // Convert raw PCM base64 to WAV Blob URL
+    const pcmData = decodeBase64ToInt16Array(base64Audio);
+    // Gemini TTS usually outputs 24000Hz
+    const wavBlob = pcmToWav(pcmData, 24000); 
+    
+    return URL.createObjectURL(wavBlob);
+
+  } catch (error) {
+    console.error("Gemini TTS Error:", error);
+    throw new Error(error instanceof Error ? error.message : "Lỗi tạo giọng đọc.");
+  }
+};
+
 export const standardizeScriptWithAI = async (script: string, apiKey: string): Promise<string> => {
   if (!apiKey) throw new Error("Vui lòng cấu hình API Key Google.");
 
   const ai = new GoogleGenAI({ apiKey });
 
-  const systemInstruction = `You are an expert TTS (Text-to-Speech) script editor.
-Your task: Clean and optimize the provided script for natural speech reading (Audiobook/Narration style).
+  // System Instruction được cập nhật để đảm bảo tính toàn vẹn nội dung
+  const systemInstruction = `You are a strict text cleaning engine for Text-to-Speech (TTS) preparation.
+Your GOAL: Remove non-spoken formatting and metadata without changing a single spoken word.
 
-RULES:
-1. **Remove Non-Spoken Elements**: Delete visual descriptions, scene headers (e.g., "Scene 1", "EXT. DAY"), camera directions, and markdown formatting (like **bold**, *italics*, [brackets]).
-2. **Punctuation**: Optimize punctuation for natural pausing. Remove excessive dots (...) or dashes (-) unless they indicate a necessary pause.
-3. **Format Preservation (CRITICAL)**:
-   - If the input is **SRT format** (contains timestamps like 00:00:01,000 --> ...): You MUST PRESERVE the exact SRT structure (Sequence Number -> Timestamp -> Text). ONLY edit the dialogue text. Do NOT merge lines or change timestamps.
-   - If the input is **Plain Text**: Remove line breaks within sentences to create full paragraphs, but keep line breaks between distinct dialogue or narration blocks.
-4. **Content**: Do not change the meaning. Only remove "noise" that shouldn't be read aloud (e.g., "Chapter 1", "Part A").
+STRICT RULES:
+1. **NO REWRITING**: Do NOT change words, fix grammar, summarize, or alter the sentence structure. Keep the spoken content 100% original.
+2. **REMOVE NOISE**: 
+   - Remove Markdown (**bold**, *italics*, etc.).
+   - Remove Stage Directions/Visual Cues (e.g., [Laughs], (Sighs), Scene 1, EXT. DAY).
+   - Remove excessive underscores (____) or separators (---).
+3. **PRESERVE SRT STRUCTURE**:
+   - If input is SRT, keep timestamps and sequence numbers exactly as is. Only clean the text part.
+4. **FORMATTING**:
+   - Remove extra line breaks within a single sentence (join broken lines).
+   - Keep line breaks between distinct paragraphs or dialogue lines.
 
-Output only the raw cleaned text/srt. Do not wrap in markdown code blocks.`;
+Output ONLY the cleaned text.`;
 
   try {
     const response = await ai.models.generateContent({

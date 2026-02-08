@@ -2,7 +2,7 @@
 import React, { useState, useRef, useCallback, FC, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
-import { generateImageFromPrompt, analyzeScriptWithAI, standardizeScriptWithAI } from './services/geminiService';
+import { generateImageFromPrompt, analyzeScriptWithAI, standardizeScriptWithAI, generateSpeechFromText } from './services/geminiService';
 
 // --- TYPES & CONSTANTS ---
 export interface ImageFile {
@@ -20,6 +20,8 @@ interface ScenePrompt {
   scriptLine: string;
   generatedImageUrl?: string;
   isLoading?: boolean;
+  audioUrl?: string;     // URL blob của file wav
+  isAudioLoading?: boolean;
 }
 
 export interface ApiKey {
@@ -45,6 +47,9 @@ Negative prompt: 3D render, photorealistic, realistic, photograph, western carto
 Character: An elderly Japanese woman (70s), kind face, wrinkles, gray hair tied back, wearing simple domestic clothes.`;
 
 const MAX_REFERENCE_IMAGES = 3;
+
+// Các giọng đọc hỗ trợ bởi Gemini (gemini-2.5-flash-preview-tts)
+const AVAILABLE_VOICES = ['Kore', 'Puck', 'Charon', 'Fenrir', 'Zephyr'];
 
 // --- UTILITY FUNCTIONS ---
 const fileToDataUrl = (file: File): Promise<{ dataUrl: string; mimeType: string }> => {
@@ -155,6 +160,19 @@ const SparklesIcon: FC<{ className?: string }> = ({ className }) => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
   </svg>
 );
+
+const SpeakerIcon: FC<{ className?: string }> = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
+    </svg>
+);
+
+const MusicalNoteIcon: FC<{ className?: string }> = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163Zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163Z" />
+    </svg>
+);
+
 
 // --- CHILD COMPONENTS ---
 
@@ -298,8 +316,9 @@ const ControlPanel: FC<ControlPanelProps> = ({
 interface PromptCardProps {
     prompt: ScenePrompt;
     onGenerateImage: (id: number) => void;
+    onGenerateAudio: (id: number) => void;
 }
-const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage }) => {
+const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage, onGenerateAudio }) => {
     const [copied, setCopied] = useState('');
 
     const handleCopy = (text: string, type: string) => {
@@ -351,38 +370,63 @@ const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage }) => {
                 </div>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-slate-800">
-                {prompt.isLoading ? (
-                     <div className="w-full aspect-video bg-slate-800 rounded-lg flex items-center justify-center">
-                        <SpinnerIcon className="animate-spin h-8 w-8 text-emerald-500" />
-                     </div>
-                ) : prompt.generatedImageUrl ? (
-                    <div className="relative group">
-                      <img src={prompt.generatedImageUrl} alt={`Generated for Scene ${prompt.id}`} className="w-full aspect-video object-cover rounded-lg shadow-lg" />
-                      
-                      {/* Control buttons overlay */}
-                      <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
-                            onClick={() => onGenerateImage(prompt.id)} 
-                            className="bg-black/60 p-2 rounded-full text-white hover:bg-emerald-500 transition-colors shadow-lg"
-                            title="Tạo lại ảnh này (Regenerate)"
-                        >
-                            <RefreshIcon className="h-5 w-5"/>
+            <div className="mt-4 pt-4 border-t border-slate-800 grid md:grid-cols-2 gap-4">
+                {/* Image Section */}
+                <div>
+                    {prompt.isLoading ? (
+                         <div className="w-full aspect-video bg-slate-800 rounded-lg flex items-center justify-center">
+                            <SpinnerIcon className="animate-spin h-8 w-8 text-emerald-500" />
+                         </div>
+                    ) : prompt.generatedImageUrl ? (
+                        <div className="relative group">
+                          <img src={prompt.generatedImageUrl} alt={`Generated for Scene ${prompt.id}`} className="w-full aspect-video object-cover rounded-lg shadow-lg" />
+                          
+                          <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button 
+                                onClick={() => onGenerateImage(prompt.id)} 
+                                className="bg-black/60 p-2 rounded-full text-white hover:bg-emerald-500 transition-colors shadow-lg"
+                                title="Tạo lại ảnh"
+                            >
+                                <RefreshIcon className="h-5 w-5"/>
+                            </button>
+                            <button 
+                                onClick={handleImageDownload} 
+                                className="bg-black/60 p-2 rounded-full text-white hover:bg-emerald-500 transition-colors shadow-lg"
+                                title="Tải ảnh"
+                            >
+                                <DownloadIcon className="h-5 w-5"/>
+                            </button>
+                          </div>
+                        </div>
+                    ) : (
+                        <button onClick={() => onGenerateImage(prompt.id)} className="w-full py-2 bg-slate-700 hover:bg-emerald-600 transition-colors rounded-lg text-sm font-semibold shadow-md border border-slate-600 flex items-center justify-center gap-2">
+                            <SparklesIcon className="h-4 w-4" /> Generate Image
                         </button>
-                        <button 
-                            onClick={handleImageDownload} 
-                            className="bg-black/60 p-2 rounded-full text-white hover:bg-emerald-500 transition-colors shadow-lg"
-                            title="Tải ảnh xuống"
-                        >
-                            <DownloadIcon className="h-5 w-5"/>
-                        </button>
-                      </div>
-                    </div>
-                ) : (
-                    <button onClick={() => onGenerateImage(prompt.id)} className="w-full py-2 bg-slate-700 hover:bg-emerald-600 transition-colors rounded-lg text-sm font-semibold shadow-md border border-slate-600">
-                        Generate Image (Gemini 3 Pro)
-                    </button>
-                )}
+                    )}
+                </div>
+
+                {/* Audio Section */}
+                <div className="flex flex-col justify-end">
+                     {prompt.isAudioLoading ? (
+                        <div className="w-full h-10 bg-slate-800 rounded-lg flex items-center justify-center gap-2 text-sm text-slate-400">
+                             <SpinnerIcon className="animate-spin h-4 w-4 text-indigo-500" /> Generating Voice...
+                        </div>
+                     ) : prompt.audioUrl ? (
+                         <div className="space-y-2">
+                             <audio controls src={prompt.audioUrl} className="w-full h-10 block rounded-lg bg-slate-100" />
+                             <button 
+                                onClick={() => onGenerateAudio(prompt.id)}
+                                className="w-full text-xs text-slate-500 hover:text-indigo-400 flex items-center justify-center gap-1 transition-colors"
+                             >
+                                <RefreshIcon className="h-3 w-3" /> Regenerate Voice
+                             </button>
+                         </div>
+                     ) : (
+                         <button onClick={() => onGenerateAudio(prompt.id)} className="w-full py-2 bg-slate-800 hover:bg-indigo-600 text-indigo-200 hover:text-white transition-colors rounded-lg text-sm font-semibold shadow-md border border-slate-700 flex items-center justify-center gap-2">
+                             <SpeakerIcon className="h-4 w-4" /> Generate Voice
+                         </button>
+                     )}
+                </div>
             </div>
         </div>
     );
@@ -395,10 +439,19 @@ interface PromptDisplayProps {
     onGenerateAll: () => void;
     onDownloadAllImages: () => void;
     isGeneratingAll: boolean;
+    onGenerateAudio: (id: number) => void;
+    onGenerateAllAudio: () => void;
+    onDownloadAllAudio: () => void;
+    isGeneratingAllAudio: boolean;
 }
-const PromptDisplay: FC<PromptDisplayProps> = ({ prompts, onGenerateImage, onDownloadAllPrompts, onGenerateAll, onDownloadAllImages, isGeneratingAll }) => {
+const PromptDisplay: FC<PromptDisplayProps> = ({ 
+    prompts, onGenerateImage, onDownloadAllPrompts, onGenerateAll, onDownloadAllImages, isGeneratingAll,
+    onGenerateAudio, onGenerateAllAudio, onDownloadAllAudio, isGeneratingAllAudio
+}) => {
     const hasMissingImages = useMemo(() => prompts.some(p => !p.generatedImageUrl), [prompts]);
     const hasGeneratedImages = useMemo(() => prompts.some(p => p.generatedImageUrl), [prompts]);
+    const hasMissingAudio = useMemo(() => prompts.some(p => !p.audioUrl), [prompts]);
+    const hasGeneratedAudio = useMemo(() => prompts.some(p => p.audioUrl), [prompts]);
 
     if (prompts.length === 0) {
         return (
@@ -418,44 +471,70 @@ const PromptDisplay: FC<PromptDisplayProps> = ({ prompts, onGenerateImage, onDow
                     <span className="w-2 h-8 bg-emerald-500 rounded-full"></span>
                     2. AI Generated Prompts ({prompts.length} scenes)
                 </h2>
-                <div className="flex flex-wrap gap-2">
-                    {/* Main Generate/Retry Button */}
-                    <button 
-                        onClick={onGenerateAll} 
-                        disabled={isGeneratingAll || !hasMissingImages}
-                        className={`text-xs font-bold py-2 px-4 rounded-lg transition-all flex items-center gap-2 shadow-md ${
-                            isGeneratingAll 
-                                ? 'bg-slate-600 cursor-not-allowed text-slate-400' 
-                                : hasMissingImages 
-                                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                                    : 'bg-slate-700 text-slate-400 cursor-default'
-                        }`}
-                        title={hasMissingImages ? "Tạo ảnh cho các phân cảnh chưa có hình" : "Đã tạo đủ ảnh"}
-                    >
-                        {isGeneratingAll ? <SpinnerIcon className="animate-spin h-4 w-4" /> : hasMissingImages ? <WarningIcon className="h-4 w-4" /> : <PlayIcon className="h-4 w-4" />}
-                        {isGeneratingAll ? 'Đang xử lý...' : hasMissingImages ? 'Tạo lại ảnh lỗi/thiếu' : 'Đã tạo đủ ảnh'}
-                    </button>
-
-                     {/* Download Images Button */}
-                     {hasGeneratedImages && (
-                        <button 
-                            onClick={onDownloadAllImages} 
-                            className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold py-2 px-4 rounded-lg transition-all flex items-center gap-2 shadow-md"
+                <div className="flex flex-col md:flex-row gap-2">
+                    <div className="flex gap-2">
+                        {/* Audio Buttons */}
+                        <button
+                             onClick={onGenerateAllAudio}
+                             disabled={isGeneratingAllAudio || !hasMissingAudio}
+                             className={`text-xs font-bold py-2 px-3 rounded-lg transition-all flex items-center gap-2 shadow-md ${
+                                isGeneratingAllAudio
+                                    ? 'bg-slate-600 cursor-not-allowed text-slate-400'
+                                    : hasMissingAudio
+                                        ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                                        : 'bg-slate-700 text-slate-400 cursor-default'
+                             }`}
+                             title="Tạo giọng đọc cho các câu còn thiếu"
                         >
-                            <ZipIcon className="h-4 w-4" />
-                            Tải tất cả ảnh
+                            {isGeneratingAllAudio ? <SpinnerIcon className="animate-spin h-4 w-4" /> : <SpeakerIcon className="h-4 w-4" />}
+                            {isGeneratingAllAudio ? 'TTS...' : 'Gen All Audio'}
                         </button>
-                    )}
+                        
+                         {hasGeneratedAudio && (
+                            <button
+                                onClick={onDownloadAllAudio}
+                                className="bg-indigo-900/50 hover:bg-indigo-800 text-indigo-300 text-xs font-semibold py-2 px-3 rounded-lg transition-all flex items-center gap-2 shadow-md border border-indigo-700/50"
+                            >
+                                <MusicalNoteIcon className="h-4 w-4" /> ZIP Audio
+                            </button>
+                        )}
+                    </div>
 
-                    <button onClick={onDownloadAllPrompts} className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold py-2 px-4 rounded-lg transition-all flex items-center gap-2 shadow-md">
-                        <DownloadIcon className="h-4 w-4" />
-                        Download XLSX
-                    </button>
+                    <div className="flex gap-2">
+                        {/* Image Buttons */}
+                        <button 
+                            onClick={onGenerateAll} 
+                            disabled={isGeneratingAll || !hasMissingImages}
+                            className={`text-xs font-bold py-2 px-3 rounded-lg transition-all flex items-center gap-2 shadow-md ${
+                                isGeneratingAll 
+                                    ? 'bg-slate-600 cursor-not-allowed text-slate-400' 
+                                    : hasMissingImages 
+                                        ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                                        : 'bg-slate-700 text-slate-400 cursor-default'
+                            }`}
+                        >
+                            {isGeneratingAll ? <SpinnerIcon className="animate-spin h-4 w-4" /> : <PlayIcon className="h-4 w-4" />}
+                            {isGeneratingAll ? 'Img...' : 'Gen All Img'}
+                        </button>
+
+                         {hasGeneratedImages && (
+                            <button 
+                                onClick={onDownloadAllImages} 
+                                className="bg-emerald-900/50 hover:bg-emerald-800 text-emerald-300 text-xs font-semibold py-2 px-3 rounded-lg transition-all flex items-center gap-2 shadow-md border border-emerald-700/50"
+                            >
+                                <ZipIcon className="h-4 w-4" /> ZIP Img
+                            </button>
+                        )}
+
+                        <button onClick={onDownloadAllPrompts} className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold py-2 px-3 rounded-lg transition-all flex items-center gap-2 shadow-md">
+                            <DownloadIcon className="h-4 w-4" /> Excel
+                        </button>
+                    </div>
                 </div>
             </div>
              <div className="space-y-4 max-h-[85vh] overflow-y-auto pr-2 custom-scrollbar">
                 {prompts.map((p) => (
-                    <PromptCard key={p.id} prompt={p} onGenerateImage={onGenerateImage} />
+                    <PromptCard key={p.id} prompt={p} onGenerateImage={onGenerateImage} onGenerateAudio={onGenerateAudio} />
                 ))}
              </div>
         </div>
@@ -471,8 +550,13 @@ interface ApiKeyModalProps {
     onSetActiveKey: (id: string) => void;
     selectedModel: string;
     onSelectModel: (model: string) => void;
+    selectedVoice: string;
+    onSelectVoice: (voice: string) => void;
 }
-const ApiKeyModal: FC<ApiKeyModalProps> = ({ isOpen, onClose, apiKeys, onAddKey, onDeleteKey, onSetActiveKey, selectedModel, onSelectModel }) => {
+const ApiKeyModal: FC<ApiKeyModalProps> = ({ 
+    isOpen, onClose, apiKeys, onAddKey, onDeleteKey, onSetActiveKey, 
+    selectedModel, onSelectModel, selectedVoice, onSelectVoice 
+}) => {
     const [newKeyValue, setNewKeyValue] = useState('');
     const [activeProvider, setActiveProvider] = useState<ApiKey['provider']>('Google');
 
@@ -516,19 +600,35 @@ const ApiKeyModal: FC<ApiKeyModalProps> = ({ isOpen, onClose, apiKeys, onAddKey,
                     <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors text-3xl font-light">&times;</button>
                 </div>
                 <div className="space-y-8">
-                    <div>
-                        <label htmlFor="model-select" className="block text-sm font-medium text-slate-300 mb-3">High-Quality Image Model</label>
-                        <select
-                            id="model-select"
-                            value={selectedModel}
-                            onChange={(e) => onSelectModel(e.target.value)}
-                            className="w-full bg-slate-800 border border-slate-700 p-4 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-inner text-white appearance-none"
-                        >
-                            <option value="gemini-3-pro-image-preview">Gemini 3 Pro Image (Best Quality - Recommended)</option>
-                            <option value="gemini-2.5-flash-image">Gemini 2.5 Flash Image (Fast - Lower Quality)</option>
-                        </select>
-                        <p className="text-[10px] text-slate-500 mt-2 italic">* Phân tách kịch bản luôn sử dụng model mạnh nhất: Gemini 3 Pro Preview.</p>
+                    <div className="grid grid-cols-2 gap-6">
+                        <div>
+                            <label htmlFor="model-select" className="block text-sm font-medium text-slate-300 mb-3">High-Quality Image Model</label>
+                            <select
+                                id="model-select"
+                                value={selectedModel}
+                                onChange={(e) => onSelectModel(e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-700 p-3 rounded-xl focus:ring-2 focus:ring-emerald-500 transition text-white"
+                            >
+                                <option value="gemini-3-pro-image-preview">Gemini 3 Pro Image (Best)</option>
+                                <option value="gemini-2.5-flash-image">Gemini 2.5 Flash Image (Fast)</option>
+                            </select>
+                        </div>
+                        <div>
+                             <label htmlFor="voice-select" className="block text-sm font-medium text-slate-300 mb-3">TTS Voice (Giọng đọc)</label>
+                             <select
+                                id="voice-select"
+                                value={selectedVoice}
+                                onChange={(e) => onSelectVoice(e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-700 p-3 rounded-xl focus:ring-2 focus:ring-emerald-500 transition text-white"
+                             >
+                                 {AVAILABLE_VOICES.map(voice => (
+                                     <option key={voice} value={voice}>{voice} (Google AI)</option>
+                                 ))}
+                             </select>
+                             <p className="text-[10px] text-slate-500 mt-1">Hỗ trợ đa ngôn ngữ (bao gồm Tiếng Nhật).</p>
+                        </div>
                     </div>
+
                     <div>
                         <div className="border-b border-slate-700 mb-6">
                             <nav className="-mb-px flex space-x-6">
@@ -562,11 +662,17 @@ export default function App() {
   const [prompts, setPrompts] = useState<ScenePrompt[]>([]);
   const [isBuilding, setIsBuilding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Image Generation State
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
+  
+  // Audio Generation State
+  const [isGeneratingAllAudio, setIsGeneratingAllAudio] = useState(false);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [selectedModel, setSelectedModel] = useState('gemini-3-pro-image-preview');
+  const [selectedVoice, setSelectedVoice] = useState('Kore');
 
   // Logic chuẩn hóa kịch bản
   const [isStandardizing, setIsStandardizing] = useState(false);
@@ -578,6 +684,8 @@ export default function App() {
         if (savedKeys) setApiKeys(JSON.parse(savedKeys));
         const savedModel = localStorage.getItem('selectedModel');
         if (savedModel) setSelectedModel(savedModel);
+        const savedVoice = localStorage.getItem('selectedVoice');
+        if (savedVoice) setSelectedVoice(savedVoice);
     } catch (e) { console.error(e); }
   }, []); 
 
@@ -589,6 +697,11 @@ export default function App() {
   const handleSelectModel = (model: string) => {
     setSelectedModel(model);
     localStorage.setItem('selectedModel', model);
+  }
+
+  const handleSelectVoice = (voice: string) => {
+      setSelectedVoice(voice);
+      localStorage.setItem('selectedVoice', voice);
   }
 
   const handleAddKey = (provider: ApiKey['provider'], name: string, key: string) => {
@@ -757,6 +870,27 @@ export default function App() {
     }
   }, [prompts, referenceImages, apiKeys, selectedModel, mode]);
 
+  const handleGenerateAudio = useCallback(async (sceneId: number) => {
+      const promptToGenerate = prompts.find(p => p.id === sceneId);
+      if (!promptToGenerate) return;
+      const activeGoogleKey = apiKeys.find(k => k.provider === 'Google' && k.isActive);
+      if (!activeGoogleKey) {
+          setError("Cần API Key Google.");
+          setIsModalOpen(true);
+          return;
+      }
+
+      setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, isAudioLoading: true } : p));
+      try {
+          // Sử dụng scriptLine để tạo voice
+          const audioUrl = await generateSpeechFromText(promptToGenerate.scriptLine, activeGoogleKey.key, selectedVoice);
+          setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, audioUrl: audioUrl, isAudioLoading: false } : p));
+      } catch (err) {
+          setError(`Lỗi tạo giọng đọc Scene ${sceneId}: ${err instanceof Error ? err.message : 'Unknown'}`);
+          setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, isAudioLoading: false } : p));
+      }
+  }, [prompts, apiKeys, selectedVoice]);
+
   const handleGenerateAllImages = useCallback(async () => {
       const activeGoogleKey = apiKeys.find(k => k.provider === 'Google' && k.isActive);
       if (!activeGoogleKey) {
@@ -766,29 +900,41 @@ export default function App() {
       }
       
       setIsGeneratingAll(true);
-      
-      // Filter for items that don't have an image yet
       const pendingItems = prompts.filter(p => !p.generatedImageUrl);
       
-      // Generate one by one to respect rate limits and not crash UI
       for (const item of pendingItems) {
          try {
              await handleGenerateImage(item.id);
-             // Small delay to be polite to the API
              await new Promise(r => setTimeout(r, 500));
-         } catch (e) {
-             console.error(`Failed to batch generate for scene ${item.id}`, e);
-             // Continue to next item even if one fails
-         }
+         } catch (e) { console.error(e); }
       }
-      
       setIsGeneratingAll(false);
   }, [apiKeys, prompts, handleGenerateImage]);
+
+  const handleGenerateAllAudio = useCallback(async () => {
+      const activeGoogleKey = apiKeys.find(k => k.provider === 'Google' && k.isActive);
+      if (!activeGoogleKey) {
+          setError("Cần API Key Google.");
+          setIsModalOpen(true);
+          return;
+      }
+
+      setIsGeneratingAllAudio(true);
+      const pendingItems = prompts.filter(p => !p.audioUrl);
+
+      for (const item of pendingItems) {
+          try {
+              await handleGenerateAudio(item.id);
+              await new Promise(r => setTimeout(r, 500));
+          } catch (e) { console.error(e); }
+      }
+      setIsGeneratingAllAudio(false);
+  }, [apiKeys, prompts, handleGenerateAudio]);
 
   const handleDownloadAllImages = useCallback(async () => {
       const imagesToZip = prompts.filter(p => p.generatedImageUrl);
       if (imagesToZip.length === 0) {
-          setError("Chưa có ảnh nào được tạo để tải xuống.");
+          setError("Chưa có ảnh nào được tạo.");
           return;
       }
       
@@ -798,7 +944,7 @@ export default function App() {
       imagesToZip.forEach(p => {
           if (p.generatedImageUrl) {
               const base64Data = p.generatedImageUrl.split(',')[1];
-              zip.file(`Scene ${p.id}_${timestamp}.png`, base64Data, {base64: true});
+              zip.file(`Scene ${p.id}_Image.png`, base64Data, {base64: true});
           }
       });
 
@@ -811,8 +957,40 @@ export default function App() {
           a.click();
           document.body.removeChild(a);
       } catch (err) {
-          console.error("Zip Error:", err);
           setError("Không thể nén và tải ảnh.");
+      }
+  }, [prompts]);
+
+  const handleDownloadAllAudio = useCallback(async () => {
+      const audioToZip = prompts.filter(p => p.audioUrl);
+      if (audioToZip.length === 0) {
+          setError("Chưa có giọng đọc nào được tạo.");
+          return;
+      }
+
+      const zip = new JSZip();
+      const timestamp = getTimestamp();
+
+      // Fetch blob data from object URLs
+      const promises = audioToZip.map(async (p) => {
+          if (p.audioUrl) {
+              const response = await fetch(p.audioUrl);
+              const blob = await response.blob();
+              zip.file(`Scene ${p.id}_Audio.wav`, blob);
+          }
+      });
+
+      try {
+          await Promise.all(promises);
+          const content = await zip.generateAsync({type: "blob"});
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(content);
+          a.download = `storyboard_audio_${timestamp}.zip`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+      } catch (err) {
+           setError("Không thể nén và tải âm thanh.");
       }
   }, [prompts]);
 
@@ -876,11 +1054,26 @@ export default function App() {
             onGenerateAll={handleGenerateAllImages}
             onDownloadAllImages={handleDownloadAllImages}
             isGeneratingAll={isGeneratingAll}
+            onGenerateAudio={handleGenerateAudio}
+            onGenerateAllAudio={handleGenerateAllAudio}
+            onDownloadAllAudio={handleDownloadAllAudio}
+            isGeneratingAllAudio={isGeneratingAllAudio}
           />
         </div>
       </main>
       
-      <ApiKeyModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} apiKeys={apiKeys} onAddKey={handleAddKey} onDeleteKey={handleDeleteKey} onSetActiveKey={handleSetActiveKey} selectedModel={selectedModel} onSelectModel={handleSelectModel} />
+      <ApiKeyModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        apiKeys={apiKeys} 
+        onAddKey={handleAddKey} 
+        onDeleteKey={handleDeleteKey} 
+        onSetActiveKey={handleSetActiveKey} 
+        selectedModel={selectedModel} 
+        onSelectModel={handleSelectModel}
+        selectedVoice={selectedVoice}
+        onSelectVoice={handleSelectVoice}
+      />
     </div>
   );
 }
