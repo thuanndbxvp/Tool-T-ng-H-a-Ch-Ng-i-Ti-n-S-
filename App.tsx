@@ -2,7 +2,7 @@
 import React, { useState, useRef, useCallback, FC, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
-import { generateImageFromPrompt, analyzeScriptWithAI } from './services/geminiService';
+import { generateImageFromPrompt, analyzeScriptWithAI, standardizeScriptWithAI } from './services/geminiService';
 
 // --- TYPES & CONSTANTS ---
 export interface ImageFile {
@@ -150,6 +150,12 @@ const TrashIcon: FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
+const SparklesIcon: FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
+  </svg>
+);
+
 // --- CHILD COMPONENTS ---
 
 interface ControlPanelProps {
@@ -163,16 +169,25 @@ interface ControlPanelProps {
   onBuildPrompts: () => void;
   isBuilding: boolean;
   scriptFileName: string | null;
+  onStandardizeScript: () => void;
+  isStandardizing: boolean;
+  standardizedScript: string | null;
+  onDownloadStandardized: () => void;
 }
-const ControlPanel: FC<ControlPanelProps> = ({ mode, setMode, scenario, setScenario, referenceImages, onImageUpload, onScriptUpload, onBuildPrompts, isBuilding, scriptFileName }) => {
+const ControlPanel: FC<ControlPanelProps> = ({ 
+    mode, setMode, scenario, setScenario, referenceImages, 
+    onImageUpload, onScriptUpload, onBuildPrompts, isBuilding, 
+    scriptFileName, onStandardizeScript, isStandardizing, standardizedScript, onDownloadStandardized
+}) => {
   const charImgRef = useRef<HTMLInputElement>(null);
   const scriptFileRef = useRef<HTMLInputElement>(null);
 
+  const scriptReady = useMemo(() => scenario.trim() !== "" || scriptFileName !== null, [scenario, scriptFileName]);
+
   const canBuild = useMemo(() => {
-      const scriptReady = scenario.trim() !== "" || scriptFileName !== null;
       if (mode === 'prehistoric') return scriptReady && referenceImages.length === MAX_REFERENCE_IMAGES;
       return scriptReady;
-  }, [mode, referenceImages, scenario, scriptFileName]);
+  }, [mode, referenceImages, scriptReady]);
 
   return (
     <div className="bg-slate-950/50 border border-slate-800 p-6 rounded-2xl flex flex-col gap-6 sticky top-6 shadow-2xl backdrop-blur-md">
@@ -240,6 +255,29 @@ const ControlPanel: FC<ControlPanelProps> = ({ mode, setMode, scenario, setScena
         ></textarea>
         <p className="text-[10px] text-slate-500 mt-1 italic font-semibold text-emerald-400/80">* Powered by Gemini 3 Pro Preview (Reasoning Model)</p>
       </div>
+      
+      {/* Standardize Script Button */}
+      <div className="border-t border-slate-800 pt-4">
+          {!standardizedScript ? (
+              <button
+                onClick={onStandardizeScript}
+                disabled={!scriptReady || isStandardizing}
+                className="w-full py-2.5 px-4 rounded-md font-semibold text-sm transition-all flex items-center justify-center gap-2 bg-slate-800 text-emerald-400 hover:bg-slate-700 border border-slate-700 hover:border-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isStandardizing ? <SpinnerIcon className="animate-spin h-4 w-4" /> : <SparklesIcon className="h-4 w-4" />}
+                {isStandardizing ? 'Cleaning...' : 'Chuẩn hóa kịch bản (TTS Ready)'}
+              </button>
+          ) : (
+              <button
+                onClick={onDownloadStandardized}
+                className="w-full py-2.5 px-4 rounded-md font-bold text-sm transition-all flex items-center justify-center gap-2 bg-emerald-900/50 text-emerald-400 hover:bg-emerald-900 border border-emerald-500/50"
+              >
+                <DownloadIcon className="h-4 w-4" />
+                Tải kịch bản đã chuẩn hóa
+              </button>
+          )}
+          <p className="text-[10px] text-slate-500 mt-2 text-center">Tự động làm sạch dấu câu, định dạng thừa để đọc AI tốt hơn.</p>
+      </div>
 
       <button
         onClick={onBuildPrompts}
@@ -248,7 +286,7 @@ const ControlPanel: FC<ControlPanelProps> = ({ mode, setMode, scenario, setScena
             mode === 'prehistoric' 
                 ? 'text-black bg-emerald-500 hover:bg-emerald-400' 
                 : 'text-white bg-indigo-600 hover:bg-indigo-500'
-        } disabled:bg-slate-600 disabled:text-slate-400 disabled:cursor-not-allowed shadow-lg`}
+        } disabled:bg-slate-600 disabled:text-slate-400 disabled:cursor-not-allowed shadow-lg mt-2`}
       >
         {isBuilding ? <SpinnerIcon className="animate-spin h-5 w-5 mr-2" /> : null}
         {isBuilding ? 'AI is analyzing...' : 'Generate Pro Storyboard'}
@@ -530,6 +568,10 @@ export default function App() {
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [selectedModel, setSelectedModel] = useState('gemini-3-pro-image-preview');
 
+  // Logic chuẩn hóa kịch bản
+  const [isStandardizing, setIsStandardizing] = useState(false);
+  const [standardizedScript, setStandardizedScript] = useState<string | null>(null);
+
   useEffect(() => {
     try {
         const savedKeys = localStorage.getItem('apiKeys');
@@ -582,6 +624,7 @@ export default function App() {
     reader.onload = (ev) => {
         setScriptFileContent(ev.target?.result as string);
         setScenario("");
+        setStandardizedScript(null); // Reset standardized script on new upload
     };
     reader.readAsText(file);
   }, []);
@@ -605,6 +648,45 @@ export default function App() {
     }
   }, []);
 
+  const handleStandardizeScript = useCallback(async () => {
+    const activeGoogleKey = apiKeys.find(k => k.provider === 'Google' && k.isActive);
+    if (!activeGoogleKey) {
+        setError("Cần API Key Google để chuẩn hóa kịch bản.");
+        setIsModalOpen(true);
+        return;
+    }
+
+    let inputScript = scriptFileContent || scenario;
+    if (!inputScript.trim()) {
+        setError("Vui lòng nhập hoặc tải kịch bản.");
+        return;
+    }
+
+    setIsStandardizing(true);
+    setError(null);
+    try {
+        const cleaned = await standardizeScriptWithAI(inputScript, activeGoogleKey.key);
+        setStandardizedScript(cleaned);
+    } catch (err) {
+        setError(`Lỗi chuẩn hóa: ${err instanceof Error ? err.message : 'Unknown'}`);
+    } finally {
+        setIsStandardizing(false);
+    }
+  }, [scriptFileContent, scenario, apiKeys]);
+
+  const handleDownloadStandardizedScript = useCallback(() => {
+      if (!standardizedScript) return;
+      const blob = new Blob([standardizedScript], { type: 'text/plain' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      const originalName = scriptFileName ? scriptFileName.substring(0, scriptFileName.lastIndexOf('.')) : 'script';
+      const ext = scriptFileName && scriptFileName.endsWith('.srt') ? '.srt' : '.txt';
+      a.download = `${originalName}_tts_ready${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+  }, [standardizedScript, scriptFileName]);
+
   const handleBuildPrompts = useCallback(async () => {
     const activeGoogleKey = apiKeys.find(k => k.provider === 'Google' && k.isActive);
     if (!activeGoogleKey) {
@@ -623,6 +705,8 @@ export default function App() {
 
     try {
       let fullScript = "";
+      // Nếu đã có script chuẩn hóa, ưu tiên dùng nó để tạo prompt tốt hơn (optional, ở đây user có thể tải về xong upload lại, hoặc dùng script gốc)
+      // Hiện tại giữ logic cũ: ưu tiên file upload hoặc text box
       if (scriptFileContent && scriptFileName) {
           fullScript = scriptFileName.endsWith('.srt') ? parseSrt(scriptFileContent) : scriptFileContent;
       } else {
@@ -778,6 +862,10 @@ export default function App() {
             onBuildPrompts={handleBuildPrompts} 
             isBuilding={isBuilding}
             scriptFileName={scriptFileName}
+            onStandardizeScript={handleStandardizeScript}
+            isStandardizing={isStandardizing}
+            standardizedScript={standardizedScript}
+            onDownloadStandardized={handleDownloadStandardizedScript}
           />
         </div>
         <div className="lg:col-span-8 xl:col-span-9">

@@ -2,6 +2,44 @@
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { ImageFile } from '../App';
 
+export const standardizeScriptWithAI = async (script: string, apiKey: string): Promise<string> => {
+  if (!apiKey) throw new Error("Vui lòng cấu hình API Key Google.");
+
+  const ai = new GoogleGenAI({ apiKey });
+
+  const systemInstruction = `You are an expert TTS (Text-to-Speech) script editor.
+Your task: Clean and optimize the provided script for natural speech reading (Audiobook/Narration style).
+
+RULES:
+1. **Remove Non-Spoken Elements**: Delete visual descriptions, scene headers (e.g., "Scene 1", "EXT. DAY"), camera directions, and markdown formatting (like **bold**, *italics*, [brackets]).
+2. **Punctuation**: Optimize punctuation for natural pausing. Remove excessive dots (...) or dashes (-) unless they indicate a necessary pause.
+3. **Format Preservation (CRITICAL)**:
+   - If the input is **SRT format** (contains timestamps like 00:00:01,000 --> ...): You MUST PRESERVE the exact SRT structure (Sequence Number -> Timestamp -> Text). ONLY edit the dialogue text. Do NOT merge lines or change timestamps.
+   - If the input is **Plain Text**: Remove line breaks within sentences to create full paragraphs, but keep line breaks between distinct dialogue or narration blocks.
+4. **Content**: Do not change the meaning. Only remove "noise" that shouldn't be read aloud (e.g., "Chapter 1", "Part A").
+
+Output only the raw cleaned text/srt. Do not wrap in markdown code blocks.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-pro-preview",
+      contents: script,
+      config: {
+        systemInstruction,
+        // No JSON schema here, we want raw text/srt output
+      }
+    });
+
+    const text = response.text;
+    if (!text) throw new Error("AI không phản hồi.");
+    
+    return text.trim();
+  } catch (error) {
+    console.error("Standardize Script Error:", error);
+    throw new Error("Không thể chuẩn hóa kịch bản. Vui lòng thử lại.");
+  }
+};
+
 export const analyzeScriptWithAI = async (script: string, apiKey: string, styleLock: string, mode: string): Promise<any[]> => {
   if (!apiKey) throw new Error("Vui lòng cấu hình API Key Google.");
   
