@@ -1,15 +1,15 @@
 
 import { GoogleGenAI, Modality } from "@google/genai";
-import { ImageFile } from '../App'; // Assuming types are exported from App.tsx
+import { ImageFile } from '../App';
 
-export const generateImageFromPrompt = async (prompt: string, referenceImages: ImageFile[], apiKey: string, model: string): Promise<string> => {
+export const generateImageFromPrompt = async (prompt: string, referenceImages: ImageFile[], apiKey: string, model: string, forceAspectRatio169: boolean = false): Promise<string> => {
   try {
     if (!apiKey) {
         throw new Error("API key is missing.");
     }
-    // Initialize with the provided API key
     const ai = new GoogleGenAI({ apiKey });
     
+    // Convert reference images to inlineData parts if they exist
     const imageParts = referenceImages.map(img => ({
       inlineData: {
         data: img.base64,
@@ -19,13 +19,17 @@ export const generateImageFromPrompt = async (prompt: string, referenceImages: I
 
     const textPart = { text: prompt };
 
+    // Nano Banana / Gemini 2.5 Flash Image models support imageConfig for aspect ratio
     const response = await ai.models.generateContent({
-      model, // Use the provided model
+      model,
       contents: {
         parts: [...imageParts, textPart]
       },
       config: {
         responseModalities: [Modality.IMAGE],
+        imageConfig: {
+          aspectRatio: forceAspectRatio169 ? "16:9" : "1:1"
+        }
       },
     });
 
@@ -38,25 +42,10 @@ export const generateImageFromPrompt = async (prompt: string, referenceImages: I
     }
 
     const finishReason = response.candidates?.[0]?.finishReason;
-    let userFriendlyError = "No image was generated in the response. The model may have refused to generate the image.";
-
-    if (finishReason) {
-        switch (finishReason) {
-            case 'NO_IMAGE':
-                userFriendlyError = "The model did not generate an image for this prompt, possibly due to safety policies or prompt clarity. Please try regenerating.";
-                break;
-            case 'SAFETY':
-                 userFriendlyError = "Image generation was blocked due to safety policies. Please try a different prompt.";
-                 break;
-            default:
-                userFriendlyError = `Image generation failed: ${finishReason}`;
-        }
-    }
-    throw new Error(userFriendlyError);
+    throw new Error(finishReason ? `Generation stopped: ${finishReason}` : "No image returned.");
 
   } catch (error) {
-    console.error("Error generating image with Gemini:", error);
-    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred during image generation.";
-    throw new Error(errorMessage);
+    console.error("Gemini Error:", error);
+    throw new Error(error instanceof Error ? error.message : "Image generation failed.");
   }
 };

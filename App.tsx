@@ -16,17 +16,11 @@ interface ScenePrompt {
   phase: string;
   imagePrompt: string;
   videoPrompt: string;
+  scriptLine: string;
   generatedImageUrl?: string;
   isLoading?: boolean;
-  generationFailed?: boolean;
 }
 
-interface Phase {
-  phase: string;
-  ratio: number;
-}
-
-// FIX: Export the ApiKey interface so it can be used across components.
 export interface ApiKey {
     id: string;
     provider: 'Google' | 'OpenAI';
@@ -35,20 +29,13 @@ export interface ApiKey {
     isActive: boolean;
 }
 
-const PHASES: Phase[] = [
-    { phase: "Hook", ratio: 0.05 },
-    { phase: "Quest", ratio: 0.15 },
-    { phase: "Conflict", ratio: 0.25 },
-    { phase: "Innovation", ratio: 0.25 },
-    { phase: "Civilization", ratio: 0.20 },
-    { phase: "Reflection", ratio: 0.10 }
-];
+type AppMode = 'prehistoric' | 'japan';
 
-const STYLE_LOCK = `Ultra-realistic prehistoric ASMR cinematic documentary.\nPrimary character strictly matches 3 uploaded references (face, hair, scars, outfit) to ensure consistency. Supporting characters follow same style but not identity-locked. Lighting: warm amber rimlight + cool fill, fog haze. 45mm lens f/2.0 shallow DOF, film grain subtle, amber-teal tone.`;
+const PREHISTORIC_STYLE = `Ultra-realistic prehistoric ASMR cinematic documentary. Primary character strictly matches 3 uploaded references (face, hair, scars, outfit). Lighting: warm amber rimlight + cool fill, fog haze. 45mm lens f/2.0 shallow DOF, film grain subtle, amber-teal tone.`;
 
-const SCENE_DURATION_SECONDS = 8;
+const JAPAN_STYLE = `High-quality modern slice-of-life anime style, 2D hand-drawn animation aesthetic. Clear lines, vibrant but natural colors, emotional lighting. Backgrounds are detailed (Japanese interiors, suburban streets, convenience stores, kitchen with fridge). Cinematic 16:9 aspect ratio. Character has expressive features and soft shading.`;
+
 const MAX_REFERENCE_IMAGES = 3;
-
 
 // --- UTILITY FUNCTIONS ---
 const fileToDataUrl = (file: File): Promise<{ dataUrl: string; mimeType: string }> => {
@@ -64,12 +51,45 @@ const dataUrlToBase64 = (dataUrl: string): string => {
   return dataUrl.split(',')[1];
 };
 
+const parseSrt = (content: string): string[] => {
+  // Simple SRT parser: remove indices and timestamps
+  const lines = content.replace(/\r/g, '').split('\n');
+  const dialogueLines: string[] = [];
+  let currentDialogue = "";
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) {
+        if (currentDialogue) dialogueLines.push(currentDialogue.trim());
+        currentDialogue = "";
+        continue;
+    }
+    // Skip index and timestamp lines
+    if (/^\d+$/.test(line)) continue;
+    if (line.includes('-->')) continue;
+    
+    currentDialogue += " " + line;
+  }
+  if (currentDialogue) dialogueLines.push(currentDialogue.trim());
+  return dialogueLines;
+};
+
+const splitIntoSentences = (text: string): string[] => {
+    // Splits by period, question mark, or exclamation followed by space/newline
+    return text.split(/[.?!](?:\s+|$)/).filter(s => s.trim().length > 5);
+};
 
 // --- UI ICONS ---
 const UploadIcon: FC<{ className?: string }> = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
   </svg>
+);
+
+const DocumentIcon: FC<{ className?: string }> = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+    </svg>
 );
 
 const CopyIcon: FC<{ className?: string }> = ({ className }) => (
@@ -103,142 +123,118 @@ const TrashIcon: FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
-const RegenerateIcon: FC<{ className?: string }> = ({ className }) => (
-    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 11.667 0 8.25 8.25 0 0 0 0-11.667l-3.182-3.182m0 0-3.182 3.182m7.5-3.182-3.182 3.182" />
-    </svg>
-);
-
-const SparklesIcon: FC<{ className?: string }> = ({ className }) => (
-    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" />
-    </svg>
-);
-
 // --- CHILD COMPONENTS ---
 
 interface ControlPanelProps {
+  mode: AppMode;
+  setMode: (mode: AppMode) => void;
   scenario: string;
   setScenario: (value: string) => void;
-  duration: number;
-  setDuration: (value: number) => void;
   referenceImages: ImageFile[];
   onImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onScriptUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onBuildPrompts: () => void;
   isBuilding: boolean;
   scriptFileName: string | null;
-  onScriptUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onRemoveScript: () => void;
 }
-const ControlPanel: FC<ControlPanelProps> = ({ 
-    scenario, setScenario, duration, setDuration, referenceImages, onImageUpload, 
-    onBuildPrompts, isBuilding, scriptFileName, onScriptUpload, onRemoveScript 
-}) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const scriptInputRef = useRef<HTMLInputElement>(null);
-  const canBuild = useMemo(() => referenceImages.length === MAX_REFERENCE_IMAGES && (!!scriptFileName || scenario.trim() !== "") && duration > 0, [referenceImages, scenario, duration, scriptFileName]);
+const ControlPanel: FC<ControlPanelProps> = ({ mode, setMode, scenario, setScenario, referenceImages, onImageUpload, onScriptUpload, onBuildPrompts, isBuilding, scriptFileName }) => {
+  const charImgRef = useRef<HTMLInputElement>(null);
+  const scriptFileRef = useRef<HTMLInputElement>(null);
+
+  const canBuild = useMemo(() => {
+      const scriptReady = scenario.trim() !== "" || scriptFileName !== null;
+      if (mode === 'prehistoric') return scriptReady && referenceImages.length === MAX_REFERENCE_IMAGES;
+      return scriptReady;
+  }, [mode, referenceImages, scenario, scriptFileName]);
 
   return (
     <div className="bg-slate-950/50 border border-slate-800 p-6 rounded-2xl flex flex-col gap-6 sticky top-6">
+      <div className="flex bg-slate-800 p-1 rounded-xl">
+        <button 
+            onClick={() => setMode('prehistoric')}
+            className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'prehistoric' ? 'bg-emerald-500 text-black shadow-lg' : 'text-slate-400 hover:text-white'}`}
+        >
+            Người Tiền Sử
+        </button>
+        <button 
+            onClick={() => setMode('japan')}
+            className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'japan' ? 'bg-indigo-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+        >
+            Nhật Bản
+        </button>
+      </div>
+
       <h2 className="text-xl font-bold text-emerald-400">1. Setup</h2>
       
+      {mode === 'prehistoric' && (
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">📸 Upload {MAX_REFERENCE_IMAGES} Character Images</label>
+            <div 
+              onClick={() => charImgRef.current?.click()}
+              className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-600 border-dashed rounded-md cursor-pointer hover:border-emerald-500 transition-colors"
+            >
+              <div className="space-y-1 text-center">
+                <UploadIcon className="mx-auto h-12 w-12 text-slate-400" />
+                <p className="text-sm text-slate-400">Click to upload files</p>
+              </div>
+            </div>
+            <input ref={charImgRef} type="file" accept="image/*" multiple onChange={onImageUpload} className="hidden" />
+            {referenceImages.length > 0 && (
+              <div className="mt-4 grid grid-cols-3 gap-4">
+                {referenceImages.map((img) => (
+                  <img key={img.name} src={img.dataUrl} alt={img.name} className="rounded-md object-cover aspect-square" />
+                ))}
+              </div>
+            )}
+          </div>
+      )}
+
       <div>
-        <label className="block text-sm font-medium text-slate-300 mb-2">📸 Upload {MAX_REFERENCE_IMAGES} Character Images</label>
+        <label className="block text-sm font-medium text-slate-300 mb-2">📄 Upload Script (.txt, .srt)</label>
         <div 
-          onClick={() => fileInputRef.current?.click()}
-          className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-600 border-dashed rounded-md cursor-pointer hover:border-emerald-500 transition-colors"
+            onClick={() => scriptFileRef.current?.click()}
+            className="flex items-center gap-3 bg-slate-800 border border-slate-700 hover:border-emerald-500 p-3 rounded-md cursor-pointer transition-colors"
         >
-          <div className="space-y-1 text-center">
-            <UploadIcon className="mx-auto h-12 w-12 text-slate-400" />
-            <p className="text-sm text-slate-400">Click to upload files</p>
-          </div>
+            <DocumentIcon className="h-5 w-5 text-emerald-400" />
+            <span className="text-sm text-slate-300 truncate">{scriptFileName || 'Chọn file kịch bản...'}</span>
         </div>
-        <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={onImageUpload} className="hidden" />
-        {referenceImages.length > 0 && (
-          <div className="mt-4 grid grid-cols-3 gap-4">
-            {referenceImages.map((img) => (
-              <img key={img.name} src={img.dataUrl} alt={img.name} className="rounded-md object-cover aspect-square" />
-            ))}
-          </div>
-        )}
+        <input ref={scriptFileRef} type="file" accept=".txt,.srt" onChange={onScriptUpload} className="hidden" />
       </div>
 
       <div>
-        <label htmlFor="scenario" className="block text-sm font-medium text-slate-300 mb-2">📜 Scenario / Topic</label>
+        <label htmlFor="scenario" className="block text-sm font-medium text-slate-300 mb-2">📜 Hoặc nhập kịch bản thủ công</label>
         <textarea
           id="scenario"
           value={scenario}
           onChange={(e) => setScenario(e.target.value)}
-          placeholder="e.g., A lone hunter tracking a mammoth"
-          rows={3}
-          className="w-full bg-slate-800 border border-slate-700 p-3 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition disabled:bg-slate-800/50 disabled:cursor-not-allowed"
-          disabled={!!scriptFileName}
+          placeholder="Nhập nội dung kịch bản tại đây..."
+          rows={6}
+          className="w-full bg-slate-800 border border-slate-700 p-3 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
         ></textarea>
-      </div>
-
-      <div className="relative flex items-center">
-          <div className="flex-grow border-t border-slate-700"></div>
-          <span className="flex-shrink mx-4 text-slate-500 text-sm font-semibold">OR</span>
-          <div className="flex-grow border-t border-slate-700"></div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-slate-300 mb-2">📄 Upload Script (.txt)</label>
-        {scriptFileName ? (
-            <div className="flex items-center justify-between bg-slate-800 p-3 rounded-md border border-emerald-800">
-                <span className="text-sm text-emerald-300 truncate font-medium">{scriptFileName}</span>
-                <button onClick={onRemoveScript} className="text-slate-400 hover:text-red-500 transition-colors ml-2" aria-label="Remove script">
-                    <TrashIcon className="h-5 w-5" />
-                </button>
-            </div>
-        ) : (
-            <div 
-              onClick={() => scriptInputRef.current?.click()}
-              className="mt-1 flex justify-center px-6 py-4 border-2 border-slate-600 border-dashed rounded-md cursor-pointer hover:border-emerald-500 transition-colors"
-            >
-              <div className="space-y-1 text-center">
-                 <UploadIcon className="mx-auto h-8 w-8 text-slate-400" />
-                 <p className="text-sm text-slate-400">Click to upload a .txt file</p>
-              </div>
-            </div>
-        )}
-        <input ref={scriptInputRef} type="file" accept=".txt,text/plain" onChange={onScriptUpload} className="hidden" />
-      </div>
-
-
-      <div>
-        <label htmlFor="duration" className="block text-sm font-medium text-slate-300 mb-2">⏱️ Video Duration (minutes)</label>
-        <input
-          id="duration"
-          type="number"
-          min="1"
-          value={duration}
-          onChange={(e) => setDuration(parseInt(e.target.value, 10))}
-          className="w-full bg-slate-800 border border-slate-700 p-3 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition disabled:bg-slate-800/50 disabled:cursor-not-allowed"
-          disabled={!!scriptFileName}
-        />
-         {scriptFileName && <p className="text-xs text-slate-400 mt-2">Duration is automatically calculated from the script.</p>}
+        <p className="text-[10px] text-slate-500 mt-1 italic">* Công cụ sẽ tự động tách câu để tạo phân cảnh.</p>
       </div>
 
       <button
         onClick={onBuildPrompts}
         disabled={!canBuild || isBuilding}
-        className="w-full py-3 px-4 rounded-md font-semibold text-black bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-600 disabled:text-slate-400 disabled:cursor-not-allowed transition-all flex items-center justify-center"
+        className={`w-full py-3 px-4 rounded-md font-semibold transition-all flex items-center justify-center ${
+            mode === 'prehistoric' 
+                ? 'text-black bg-emerald-500 hover:bg-emerald-400' 
+                : 'text-white bg-indigo-600 hover:bg-indigo-500'
+        } disabled:bg-slate-600 disabled:text-slate-400 disabled:cursor-not-allowed`}
       >
         {isBuilding ? <SpinnerIcon className="animate-spin h-5 w-5 mr-2" /> : null}
-        {isBuilding ? 'Generating...' : 'Generate Prompts'}
+        {isBuilding ? 'Processing...' : 'Generate Prompts'}
       </button>
     </div>
   );
 };
 
-
 interface PromptCardProps {
     prompt: ScenePrompt;
     onGenerateImage: (id: number) => void;
-    isBatchGenerating: boolean;
 }
-const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage, isBatchGenerating }) => {
+const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage }) => {
     const [copied, setCopied] = useState('');
 
     const handleCopy = (text: string, type: string) => {
@@ -259,13 +255,15 @@ const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage, isBatchGener
 
     return (
         <div className="bg-slate-950/30 border border-slate-800 p-4 rounded-xl transition-all hover:border-slate-700">
-            <div className="flex justify-between items-center mb-3">
-                <h3 className="font-semibold text-emerald-400">Scene {prompt.id}</h3>
-                <span className="text-xs font-medium bg-slate-700 text-slate-300 px-2 py-1 rounded-full">{prompt.phase}</span>
+            <div className="flex justify-between items-start mb-3">
+                <div className="flex-1 pr-4">
+                    <h3 className="font-semibold text-emerald-400 mb-1">Scene {prompt.id}</h3>
+                    <p className="text-xs text-slate-400 italic">"{prompt.scriptLine}"</p>
+                </div>
+                <span className="text-xs font-medium bg-slate-700 text-slate-300 px-2 py-1 rounded-full whitespace-nowrap">{prompt.phase}</span>
             </div>
 
             <div className="grid md:grid-cols-2 gap-4">
-                {/* Image Prompt Section */}
                 <div className="space-y-2">
                     <div className="flex justify-between items-center">
                         <h4 className="text-sm font-semibold text-slate-300">Image Prompt</h4>
@@ -273,10 +271,9 @@ const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage, isBatchGener
                             {copied === 'image' ? 'Copied!' : <CopyIcon className="h-4 w-4" />}
                         </button>
                     </div>
-                    <pre className="text-xs whitespace-pre-wrap bg-slate-800/50 p-3 rounded-md font-mono text-slate-400 h-32 overflow-y-auto">{prompt.imagePrompt}</pre>
+                    <pre className="text-xs whitespace-pre-wrap bg-slate-800/50 p-3 rounded-md font-mono text-slate-400 h-24 overflow-y-auto">{prompt.imagePrompt}</pre>
                 </div>
                 
-                {/* Video Prompt Section */}
                 <div className="space-y-2">
                     <div className="flex justify-between items-center">
                         <h4 className="text-sm font-semibold text-slate-300">Video Prompt</h4>
@@ -284,11 +281,10 @@ const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage, isBatchGener
                             {copied === 'video' ? 'Copied!' : <CopyIcon className="h-4 w-4" />}
                         </button>
                     </div>
-                    <pre className="text-xs whitespace-pre-wrap bg-slate-800/50 p-3 rounded-md font-mono text-slate-400 h-32 overflow-y-auto">{prompt.videoPrompt}</pre>
+                    <pre className="text-xs whitespace-pre-wrap bg-slate-800/50 p-3 rounded-md font-mono text-slate-400 h-24 overflow-y-auto">{prompt.videoPrompt}</pre>
                 </div>
             </div>
 
-            {/* Image Generation */}
             <div className="mt-4 pt-4 border-t border-slate-800">
                 {prompt.isLoading ? (
                      <div className="w-full aspect-video bg-slate-800 rounded-lg flex items-center justify-center">
@@ -297,37 +293,16 @@ const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage, isBatchGener
                 ) : prompt.generatedImageUrl ? (
                     <div className="relative group">
                       <img src={prompt.generatedImageUrl} alt={`Generated for Scene ${prompt.id}`} className="w-full aspect-video object-cover rounded-lg" />
-                      <div className="absolute top-2 right-2 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                         <button 
-                            onClick={() => onGenerateImage(prompt.id)}
-                            disabled={isBatchGenerating} 
-                            className="bg-black/50 p-2 rounded-full text-white hover:bg-emerald-500/80 transition-all disabled:bg-slate-600/50 disabled:cursor-not-allowed"
-                            aria-label="Regenerate image"
-                            title="Regenerate image"
-                          >
-                              <RegenerateIcon className="h-5 w-5"/>
-                          </button>
-                          <button 
-                            onClick={handleImageDownload} 
-                            className="bg-black/50 p-2 rounded-full text-white hover:bg-emerald-500/80 transition-all"
-                            aria-label="Download image"
-                            title="Download image"
-                          >
-                              <DownloadIcon className="h-5 w-5"/>
-                          </button>
-                      </div>
+                      <button 
+                        onClick={handleImageDownload} 
+                        className="absolute top-2 right-2 bg-black/50 p-2 rounded-full text-white hover:bg-emerald-500/80 transition-all opacity-0 group-hover:opacity-100"
+                      >
+                          <DownloadIcon className="h-5 w-5"/>
+                      </button>
                     </div>
                 ) : (
-                    <button 
-                        onClick={() => onGenerateImage(prompt.id)} 
-                        disabled={isBatchGenerating}
-                        className={`w-full py-2 rounded-lg text-sm font-semibold transition-colors disabled:bg-slate-600 disabled:text-slate-400 disabled:cursor-not-allowed ${
-                            prompt.generationFailed 
-                            ? 'bg-red-800 hover:bg-red-700' 
-                            : 'bg-slate-700 hover:bg-emerald-600'
-                        }`}
-                    >
-                        {prompt.generationFailed ? 'Retry Generation' : 'Generate Image'}
+                    <button onClick={() => onGenerateImage(prompt.id)} className="w-full py-2 bg-slate-700 hover:bg-emerald-600 transition-colors rounded-lg text-sm font-semibold">
+                        Generate Image
                     </button>
                 )}
             </div>
@@ -335,33 +310,12 @@ const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage, isBatchGener
     );
 };
 
-
 interface PromptDisplayProps {
     prompts: ScenePrompt[];
     onGenerateImage: (id: number) => void;
     onDownloadAllPrompts: () => void;
-    onGenerateAllImages: () => void;
-    onDownloadAllImages: () => void;
-    isBatchGenerating: boolean;
-    hasGeneratedImages: boolean;
 }
-const PromptDisplay: FC<PromptDisplayProps> = ({ 
-    prompts, onGenerateImage, onDownloadAllPrompts, onGenerateAllImages, onDownloadAllImages, 
-    isBatchGenerating, hasGeneratedImages 
-}) => {
-    const [copiedAll, setCopiedAll] = useState<'image' | 'video' | null>(null);
-
-    const handleCopyAll = (type: 'image' | 'video') => {
-        if (!prompts.length) return;
-        const textToCopy = prompts
-            .map(p => type === 'image' ? p.imagePrompt : p.videoPrompt)
-            .join('\n');
-        
-        navigator.clipboard.writeText(textToCopy);
-        setCopiedAll(type);
-        setTimeout(() => setCopiedAll(null), 2000);
-    };
-
+const PromptDisplay: FC<PromptDisplayProps> = ({ prompts, onGenerateImage, onDownloadAllPrompts }) => {
     if (prompts.length === 0) {
         return (
             <div className="bg-slate-950/50 border border-slate-800 p-6 rounded-2xl flex items-center justify-center min-h-[50vh]">
@@ -376,40 +330,22 @@ const PromptDisplay: FC<PromptDisplayProps> = ({
     return (
         <div className="bg-slate-950/50 border border-slate-800 p-6 rounded-2xl">
             <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
-                <h2 className="text-xl font-bold text-emerald-400">2. Generated Prompts</h2>
-                <div className="flex flex-wrap gap-2">
-                    <button onClick={onGenerateAllImages} disabled={isBatchGenerating} className="bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white text-xs font-semibold py-2 px-3 rounded-lg transition-colors flex items-center gap-2">
-                        {isBatchGenerating ? <SpinnerIcon className="h-4 w-4 animate-spin"/> : <SparklesIcon className="h-4 w-4" />}
-                        {isBatchGenerating ? 'Generating...' : 'Generate All Images'}
-                    </button>
-                    <button onClick={onDownloadAllImages} disabled={!hasGeneratedImages || isBatchGenerating} className="bg-slate-700 hover:bg-slate-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white text-xs font-semibold py-2 px-3 rounded-lg transition-colors flex items-center gap-2">
-                        <DownloadIcon className="h-4 w-4" />
-                        Download All Images
-                    </button>
-                    <button onClick={() => handleCopyAll('image')} className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold py-2 px-3 rounded-lg transition-colors flex items-center gap-2">
-                        <CopyIcon className="h-4 w-4" />
-                        {copiedAll === 'image' ? 'Copied!' : 'Copy All Image Prompts'}
-                    </button>
-                    <button onClick={() => handleCopyAll('video')} className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold py-2 px-3 rounded-lg transition-colors flex items-center gap-2">
-                        <CopyIcon className="h-4 w-4" />
-                        {copiedAll === 'video' ? 'Copied!' : 'Copy All Video Prompts'}
-                    </button>
+                <h2 className="text-xl font-bold text-emerald-400">2. Generated Prompts ({prompts.length} scenes)</h2>
+                <div className="flex gap-2">
                     <button onClick={onDownloadAllPrompts} className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold py-2 px-3 rounded-lg transition-colors flex items-center gap-2">
                         <DownloadIcon className="h-4 w-4" />
-                        Download All Prompts (XLSX)
+                        Download XLSX
                     </button>
                 </div>
             </div>
              <div className="space-y-4 max-h-[85vh] overflow-y-auto pr-2">
                 {prompts.map((p) => (
-                    <PromptCard key={p.id} prompt={p} onGenerateImage={onGenerateImage} isBatchGenerating={isBatchGenerating} />
+                    <PromptCard key={p.id} prompt={p} onGenerateImage={onGenerateImage} />
                 ))}
              </div>
         </div>
     );
 };
-
-// --- API MODAL COMPONENT ---
 
 interface ApiKeyModalProps {
     isOpen: boolean;
@@ -451,7 +387,7 @@ const ApiKeyModal: FC<ApiKeyModalProps> = ({ isOpen, onClose, apiKeys, onAddKey,
                     ) : (
                         <button onClick={() => onSetActiveKey(key.id)} className="text-xs font-semibold text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded-md transition">Set Active</button>
                     )}
-                    <button onClick={() => onDeleteKey(key.id)} className="text-slate-400 hover:text-red-500 p-1 rounded-md transition" aria-label="Delete key"><TrashIcon className="h-4 w-4" /></button>
+                    <button onClick={() => onDeleteKey(key.id)} className="text-slate-400 hover:text-red-500 p-1 rounded-md transition"><TrashIcon className="h-4 w-4" /></button>
                 </div>
             </div>
         ))
@@ -464,7 +400,6 @@ const ApiKeyModal: FC<ApiKeyModalProps> = ({ isOpen, onClose, apiKeys, onAddKey,
                     <h2 className="text-2xl font-bold text-emerald-400">API & Model Settings</h2>
                     <button onClick={onClose} className="text-slate-400 hover:text-white">&times;</button>
                 </div>
-
                 <div className="space-y-6">
                     <div>
                         <label htmlFor="model-select" className="block text-sm font-medium text-slate-300 mb-2">Active AI Model</label>
@@ -475,28 +410,23 @@ const ApiKeyModal: FC<ApiKeyModalProps> = ({ isOpen, onClose, apiKeys, onAddKey,
                             className="w-full bg-slate-800 border border-slate-700 p-3 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
                         >
                             <option value="gemini-2.5-flash-image">Gemini 2.5 Flash Image</option>
-                            <option value="gemini-2.5-pro" disabled>Gemini 2.5 Pro (Text only)</option>
-                            <option value="dall-e-3" disabled>DALL-E 3 (Coming Soon)</option>
+                            <option value="gemini-3-pro-image-preview">Gemini 3 Pro Image (High Qual)</option>
                         </select>
                     </div>
-
                     <div>
                         <div className="border-b border-slate-700 mb-4">
-                            <nav className="-mb-px flex space-x-4" aria-label="Tabs">
+                            <nav className="-mb-px flex space-x-4">
                                 <button onClick={() => setActiveProvider('Google')} className={`${activeProvider === 'Google' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-slate-400 hover:text-white hover:border-slate-500'} whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors`}>Google AI</button>
                                 <button onClick={() => setActiveProvider('OpenAI')} className={`${activeProvider === 'OpenAI' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-slate-400 hover:text-white hover:border-slate-500'} whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors`}>OpenAI</button>
                             </nav>
                         </div>
-                        
                         <div className="space-y-3 p-1">
-                            <h3 className="text-lg font-semibold text-slate-200 mb-2">Add New {activeProvider} Key</h3>
                              <div className="flex flex-col md:flex-row gap-2">
                                 <input type="text" placeholder="Nickname" value={newKeyName} onChange={e => setNewKeyName(e.target.value)} className="flex-grow bg-slate-800 border border-slate-700 p-2 rounded-md focus:ring-1 focus:ring-emerald-500 transition text-sm" />
                                 <input type="password" placeholder="API Key" value={newKeyValue} onChange={e => setNewKeyValue(e.target.value)} className="flex-grow bg-slate-800 border border-slate-700 p-2 rounded-md focus:ring-1 focus:ring-emerald-500 transition text-sm" />
                                 <button onClick={handleAdd} className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2 rounded-md transition text-sm">Add Key</button>
                             </div>
                         </div>
-
                         <div className="mt-4 space-y-2">
                              {renderKeyList(activeProvider)}
                              {apiKeys.filter(k => k.provider === activeProvider).length === 0 && <p className="text-center text-slate-500 text-sm py-4">No {activeProvider} keys added yet.</p>}
@@ -508,38 +438,27 @@ const ApiKeyModal: FC<ApiKeyModalProps> = ({ isOpen, onClose, apiKeys, onAddKey,
     );
 };
 
-
-// --- MAIN APP COMPONENT ---
-
 export default function App() {
+  const [mode, setMode] = useState<AppMode>('prehistoric');
   const [scenario, setScenario] = useState("");
-  const [duration, setDuration] = useState(15);
+  const [scriptFileContent, setScriptFileContent] = useState<string | null>(null);
+  const [scriptFileName, setScriptFileName] = useState<string | null>(null);
   const [referenceImages, setReferenceImages] = useState<ImageFile[]>([]);
   const [prompts, setPrompts] = useState<ScenePrompt[]>([]);
   const [isBuilding, setIsBuilding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const [scriptContent, setScriptContent] = useState<string | null>(null);
-  const [scriptFileName, setScriptFileName] = useState<string | null>(null);
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash-image');
 
-  const [isBatchGenerating, setIsBatchGenerating] = useState(false);
-  const generationQueue = useRef<number[]>([]);
-
   useEffect(() => {
-    // This effect runs once on component mount.
-    // Load saved settings from localStorage
     try {
         const savedKeys = localStorage.getItem('apiKeys');
         if (savedKeys) setApiKeys(JSON.parse(savedKeys));
         const savedModel = localStorage.getItem('selectedModel');
         if (savedModel) setSelectedModel(savedModel);
-    } catch (e) {
-        console.error("Failed to load settings from localStorage", e);
-    }
+    } catch (e) { console.error(e); }
   }, []); 
 
   const updateAndSaveKeys = (newKeys: ApiKey[]) => {
@@ -553,332 +472,161 @@ export default function App() {
   }
 
   const handleAddKey = (provider: ApiKey['provider'], name: string, key: string) => {
-    const newKey: ApiKey = { id: crypto.randomUUID(), provider, name, key, isActive: false };
-    const providerKeys = apiKeys.filter(k => k.provider === provider);
-    if (providerKeys.length === 0) {
-        newKey.isActive = true;
-    }
+    const newKey: ApiKey = { id: crypto.randomUUID(), provider, name, key, isActive: apiKeys.filter(k => k.provider === provider).length === 0 };
     updateAndSaveKeys([...apiKeys, newKey]);
   };
 
-  const handleDeleteKey = (id: string) => {
-    updateAndSaveKeys(apiKeys.filter(k => k.id !== id));
-  };
+  const handleDeleteKey = (id: string) => updateAndSaveKeys(apiKeys.filter(k => k.id !== id));
 
   const handleSetActiveKey = (id: string) => {
     const keyToActivate = apiKeys.find(k => k.id === id);
     if (!keyToActivate) return;
-    
-    const updatedKeys = apiKeys.map(k => {
-        if (k.provider === keyToActivate.provider) {
-            return { ...k, isActive: k.id === id };
-        }
-        return k;
-    });
-    updateAndSaveKeys(updatedKeys);
+    updateAndSaveKeys(apiKeys.map(k => k.provider === keyToActivate.provider ? { ...k, isActive: k.id === id } : k));
   };
 
   const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
       if (!e.target.files) return;
       const files = Array.from(e.target.files).slice(0, MAX_REFERENCE_IMAGES);
-      if (files.length === 0) return;
-      setError(null);
-
       try {
           const imagePromises = files.map(async (file: File) => {
               const { dataUrl, mimeType } = await fileToDataUrl(file);
-              const base64 = dataUrlToBase64(dataUrl);
-              return { name: file.name, dataUrl, base64, mimeType };
+              return { name: file.name, dataUrl, base64: dataUrlToBase64(dataUrl), mimeType };
           });
-          const newImages = await Promise.all(imagePromises);
-          setReferenceImages(newImages);
-      } catch (err) {
-          setError('Failed to read image files.');
-          console.error(err);
-      }
-  }, []);
-  
-  const handleScriptUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    const file = e.target.files[0];
-    if (file && (file.type === 'text/plain' || file.name.endsWith('.txt'))) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const text = event.target?.result as string;
-            setScriptContent(text);
-            setScriptFileName(file.name);
-            setScenario(''); // Clear scenario when script is uploaded
-            
-            const lines = text.split('\n').filter(line => line.trim() !== '');
-            const calculatedDuration = Math.ceil((lines.length * SCENE_DURATION_SECONDS) / 60);
-            setDuration(Math.max(1, calculatedDuration)); // Ensure duration is at least 1 minute
-        };
-        reader.onerror = () => {
-            setError('Failed to read script file.');
-        };
-        reader.readAsText(file);
-    } else {
-        setError('Please upload a valid .txt file.');
-    }
-    // Reset the file input value to allow re-uploading the same file
-    e.target.value = '';
+          setReferenceImages(await Promise.all(imagePromises));
+      } catch (err) { setError('Failed to read image files.'); }
   }, []);
 
-  const handleRemoveScript = useCallback(() => {
-    setScriptContent(null);
-    setScriptFileName(null);
+  const handleScriptUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setScriptFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        setScriptFileContent(ev.target?.result as string);
+        setScenario(""); // Clear manual input if file uploaded
+    };
+    reader.readAsText(file);
   }, []);
 
   const downloadPromptsAsXLSX = useCallback((promptsToDownload: ScenePrompt[]) => {
     if (!promptsToDownload.length) return;
-    try {
-        const header = ["STT", "Phase", "Image Prompt", "Video Prompt"];
-        const data = promptsToDownload.map(p => [p.id, p.phase, p.imagePrompt, p.videoPrompt]);
-        
-        const worksheet = XLSX.utils.aoa_to_sheet([header, ...data]);
-
-        const columnWidths = [
-            { wch: 5 },  // STT
-            { wch: 15 }, // Phase
-            { wch: 80 }, // Image Prompt
-            { wch: 80 }, // Video Prompt
-        ];
-        worksheet['!cols'] = columnWidths;
-
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Prompts");
-        XLSX.writeFile(workbook, "all-prompts.xlsx");
-    } catch (err) {
-        setError("Failed to generate XLSX file. The XLSX library might not be loaded correctly.");
-        console.error("Failed to generate XLSX file:", err);
-    }
+    const worksheet = XLSX.utils.aoa_to_sheet([["STT", "Phase", "Original Line", "Image Prompt", "Video Prompt"], ...promptsToDownload.map(p => [p.id, p.phase, p.scriptLine, p.imagePrompt, p.videoPrompt])]);
+    worksheet['!cols'] = [{ wch: 5 }, { wch: 15 }, { wch: 40 }, { wch: 80 }, { wch: 80 }];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Prompts");
+    XLSX.writeFile(workbook, "prompts.xlsx");
   }, []);
 
   const handleBuildPrompts = useCallback(() => {
-    if (referenceImages.length < MAX_REFERENCE_IMAGES) {
-      setError(`Please upload exactly ${MAX_REFERENCE_IMAGES} character images.`);
+    if (mode === 'prehistoric' && referenceImages.length < MAX_REFERENCE_IMAGES) {
+      setError(`Vui lòng upload ${MAX_REFERENCE_IMAGES} ảnh tham chiếu cho chế độ Người Tiền Sử.`);
       return;
     }
     setIsBuilding(true);
     setError(null);
-    setPrompts([]);
 
     setTimeout(() => {
-        if (scriptContent) {
-            // --- SCRIPT-BASED GENERATION ---
-            const lines = scriptContent.split('\n').filter(line => line.trim() !== '');
-            if (lines.length === 0) {
-                setError("The uploaded script is empty or contains only whitespace.");
-                setIsBuilding(false);
-                return;
-            }
-            
-            const scenes: ScenePrompt[] = lines.map((line, index) => {
-                const actionDescription = line.trim();
-                const sceneId = index + 1;
+      let scriptLines: string[] = [];
+      if (scriptFileContent && scriptFileName) {
+          if (scriptFileName.endsWith('.srt')) {
+              scriptLines = parseSrt(scriptFileContent);
+          } else {
+              scriptLines = scriptFileContent.split(/\n+/).filter(l => l.trim().length > 5);
+          }
+      } else if (scenario.trim()) {
+          scriptLines = splitIntoSentences(scenario);
+      }
 
-                const imagePrompt = `${STYLE_LOCK.replace(/\n/g, ' ')} ${actionDescription}. Distinct moment in the story. Tactile ASMR details (stone flaking, fire crackling). Photorealistic. No text, words, or logos.`;
-                const videoPrompt = `Scene ${sceneId}: "${actionDescription}". Direct continuation of the still image, bringing it to life with subtle motion. Handheld camera (3-5% sway), focus breathing. Prehistoric ambient sounds only. Duration ${SCENE_DURATION_SECONDS}s. Family safe for monetization.`;
-                
-                return { id: sceneId, phase: "From Script", imagePrompt, videoPrompt };
-            });
-            
-            setPrompts(scenes);
+      if (scriptLines.length === 0) {
+          setError("Không tìm thấy nội dung kịch bản hợp lệ.");
+          setIsBuilding(false);
+          return;
+      }
 
-        } else {
-            // --- SCENARIO-BASED GENERATION (Original Logic) ---
-            const totalSec = duration * 60;
-            const scenes: ScenePrompt[] = [];
-            let id = 1;
-            const baseScenario = scenario || "prehistoric survival";
+      const scenes: ScenePrompt[] = [];
+      const styleLock = mode === 'prehistoric' ? PREHISTORIC_STYLE : JAPAN_STYLE;
 
-            const generateActionDescription = (phase: string, index: number, totalInPhase: number, baseScenario: string): string => {
-                const progress = totalInPhase > 1 ? `(part ${index + 1} of ${totalInPhase})` : '';
-                
-                switch(phase) {
-                    case "Hook":
-                        return `Establishing the main character and their immediate environment, related to the topic of ${baseScenario}. The character is observing their surroundings with a thoughtful expression. ${progress}`;
-                    case "Quest":
-                        if (index === 0) return `The character begins a journey with purpose, moving through the landscape. This is the start of a task related to ${baseScenario}. ${progress}`;
-                        if (index === totalInPhase - 1) return `The character is nearing their goal, showing a mix of fatigue and focus. The quest for ${baseScenario} is almost complete. ${progress}`;
-                        return `The character navigates a challenging part of the terrain (e.g., crossing a shallow river, climbing a rocky outcrop) as they continue their quest for ${baseScenario}. ${progress}`;
-                    case "Conflict":
-                        if (index < Math.floor(totalInPhase / 2)) return `Tension builds. The character detects a sign of danger or the initial stage of a challenge related to ${baseScenario}. They are cautious and alert. ${progress}`;
-                        return `The height of the conflict. The character is actively engaged with the main challenge (e.g., facing a predator, enduring a harsh storm) in their story about ${baseScenario}. ${progress}`;
-                    case "Innovation":
-                        if (index === 0) return `The character struggles with an old method, a look of frustration hints at the need for a new solution. This is related to ${baseScenario}. ${progress}`;
-                        if (index < totalInPhase - 1) return `Deep in concentration, the character experiments with new materials, crafting a new tool or perfecting a new technique. Focus on the hands-on process of innovation for ${baseScenario}. ${progress}`;
-                        return `Success! The character uses their new tool or discovery for the first time, with a clear look of accomplishment. This is a breakthrough in their story of ${baseScenario}. ${progress}`;
-                    case "Civilization":
-                        if (index < Math.floor(totalInPhase / 2)) return `The focus is on building and community. The character improves their shelter or works alongside others on a task, showing early signs of a settled life, related to ${baseScenario}. ${progress}`;
-                        return `A slice of daily life. The character is using improved tools to prepare food, or sharing a quiet moment with their small community, showing the stability they have achieved through ${baseScenario}. ${progress}`;
-                    case "Reflection":
-                        return `A quiet, concluding moment. The character looks out at the landscape from a high vantage point, reflecting on their journey and the events of ${baseScenario}. ${progress}`;
-                    default:
-                        return `A scene from the story of ${baseScenario}. ${progress}`;
-                }
-            }
+      scriptLines.forEach((line, index) => {
+        const id = index + 1;
+        // Basic phase estimation based on progress
+        let phase = "Sequence";
+        const progress = (index / scriptLines.length);
+        if (progress < 0.1) phase = "Hook";
+        else if (progress < 0.3) phase = "Setup";
+        else if (progress < 0.7) phase = "Main Action";
+        else phase = "Closure";
 
-            PHASES.forEach((p) => {
-                const numScenesInPhase = Math.max(1, Math.round((totalSec * p.ratio) / SCENE_DURATION_SECONDS));
-                for (let i = 0; i < numScenesInPhase; i++) {
-                const actionDescription = generateActionDescription(p.phase, i, numScenesInPhase, baseScenario);
+        const imagePrompt = `${styleLock} Action: ${line.trim()}. High detail, 16:9, cinematic. No text.`;
+        const videoPrompt = `Animate the scene: "${line.trim()}". ${mode === 'prehistoric' ? 'Realistic motion, handheld sway' : 'Smooth anime motion, 2D animation style'}, 16:9, duration 8s.`;
+        
+        scenes.push({ id, phase, scriptLine: line.trim(), imagePrompt, videoPrompt });
+      });
 
-                const imagePrompt = `${STYLE_LOCK.replace(/\n/g, ' ')} ${actionDescription}. Distinct moment in the story. Tactile ASMR details (stone flaking, fire crackling). Photorealistic. No text, words, or logos.`;
-                
-                const videoPrompt = `Scene ${id}: "${actionDescription}". Direct continuation of the still image, bringing it to life with subtle motion. Handheld camera (3-5% sway), focus breathing. Prehistoric ambient sounds only. Duration ${SCENE_DURATION_SECONDS}s. Family safe for monetization.`;
-                
-                scenes.push({ id, phase: p.phase, imagePrompt, videoPrompt });
-                id++;
-                }
-            });
-            setPrompts(scenes);
-        }
+      setPrompts(scenes);
+      downloadPromptsAsXLSX(scenes);
       setIsBuilding(false);
     }, 500);
-  }, [referenceImages.length, duration, scenario, scriptContent]);
+  }, [mode, referenceImages.length, scenario, scriptFileContent, scriptFileName, downloadPromptsAsXLSX]);
 
   const handleGenerateImage = useCallback(async (sceneId: number) => {
     const promptToGenerate = prompts.find(p => p.id === sceneId);
     if (!promptToGenerate) return;
-    
     const activeGoogleKey = apiKeys.find(k => k.provider === 'Google' && k.isActive);
-
     if (!activeGoogleKey) {
-        setError("No active Google API key found. Please add or activate one in the API Settings.");
+        setError("Vui lòng thêm API Key Google trong phần Settings.");
         setIsModalOpen(true);
         return;
     }
-
-    setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, isLoading: true, generationFailed: false } : p));
-    setError(null);
-
+    setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, isLoading: true } : p));
     try {
-        const imageUrl = await generateImageFromPrompt(promptToGenerate.imagePrompt, referenceImages, activeGoogleKey.key, selectedModel);
+        const imageUrl = await generateImageFromPrompt(promptToGenerate.imagePrompt, mode === 'prehistoric' ? referenceImages : [], activeGoogleKey.key, selectedModel, mode === 'japan');
         setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, generatedImageUrl: imageUrl, isLoading: false } : p));
     } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-        setError(`Error for Scene ${sceneId}: ${errorMessage}`);
-        setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, isLoading: false, generationFailed: true } : p));
+        setError(`Lỗi Scene ${sceneId}: ${err instanceof Error ? err.message : 'Unknown'}`);
+        setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, isLoading: false } : p));
     }
-  }, [prompts, referenceImages, apiKeys, selectedModel]);
-
-  const handleDownloadAllPrompts = useCallback(() => {
-    downloadPromptsAsXLSX(prompts);
-  }, [prompts, downloadPromptsAsXLSX]);
-
-  // --- BATCH PROCESSING LOGIC ---
-  const handleGenerateImageRef = useRef(handleGenerateImage);
-  handleGenerateImageRef.current = handleGenerateImage;
-
-  const processQueue = useCallback(async () => {
-      if (generationQueue.current.length === 0) {
-          setIsBatchGenerating(false);
-          return;
-      }
-      const sceneId = generationQueue.current.shift();
-      if (sceneId) {
-          await handleGenerateImageRef.current(sceneId);
-      }
-      setTimeout(processQueue, 500); // Process next item after a short delay
-  }, []);
-
-  const handleGenerateAllImages = useCallback(() => {
-      const idsToGenerate = prompts.filter(p => !p.generatedImageUrl).map(p => p.id);
-      if (idsToGenerate.length === 0) {
-          setError("All images have already been generated or have a pending generation.");
-          return;
-      }
-      generationQueue.current = idsToGenerate;
-      setIsBatchGenerating(true);
-      processQueue();
-  }, [prompts, processQueue]);
-
-  const handleDownloadAllImages = useCallback(() => {
-    const imagesToDownload = prompts.filter(p => p.generatedImageUrl);
-    if (imagesToDownload.length === 0) {
-        setError("No images have been generated to download.");
-        return;
-    }
-    imagesToDownload.forEach((prompt, index) => {
-        setTimeout(() => {
-            if (!prompt.generatedImageUrl) return;
-            const a = document.createElement('a');
-            a.href = prompt.generatedImageUrl;
-            a.download = `scene-${prompt.id}.png`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-        }, index * 300); // Stagger downloads to prevent browser issues
-    });
-  }, [prompts]);
-  
-  const hasGeneratedImages = useMemo(() => prompts.some(p => p.generatedImageUrl), [prompts]);
+  }, [prompts, referenceImages, apiKeys, selectedModel, mode]);
 
   return (
     <div className="min-h-screen bg-black text-white p-4 md:p-6">
-      <header className="flex justify-between items-center mb-8">
-        <div/>
-        <h1 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-teal-200 text-center">
-          Tool Tự Động Hóa Chủ Đề Người Tiền Sử
-        </h1>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="bg-slate-800 hover:bg-slate-700 text-white font-semibold py-2 px-3 rounded-lg transition-colors flex items-center gap-2"
-          aria-label="Open API Settings"
-        >
+      <header className="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
+        <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center font-bold text-black">ND</div>
+            <h1 className="text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-indigo-400">
+                Media Storyboard VN
+            </h1>
+        </div>
+        <button onClick={() => setIsModalOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-white font-semibold py-2 px-3 rounded-lg transition-colors flex items-center gap-2">
           <KeyIcon className="h-5 w-5" />
           <span className="hidden md:inline">API Settings</span>
         </button>
       </header>
-      
       {error && (
-        <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-3 rounded-lg relative mb-6" role="alert">
-            <strong className="font-bold">Error: </strong>
-            <span className="block sm:inline">{error}</span>
+        <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-3 rounded-lg mb-6 flex justify-between items-center animate-fade-in" role="alert">
+            <span><strong className="font-bold">Lỗi: </strong>{error}</span>
+            <button onClick={() => setError(null)} className="ml-4">&times;</button>
         </div>
       )}
-
       <main className="grid lg:grid-cols-3 gap-6 items-start">
         <div className="lg:col-span-1">
-          <ControlPanel
-            scenario={scenario}
-            setScenario={setScenario}
-            duration={duration}
-            setDuration={setDuration}
-            referenceImages={referenceImages}
-            onImageUpload={handleImageUpload}
-            onBuildPrompts={handleBuildPrompts}
+          <ControlPanel 
+            mode={mode} 
+            setMode={setMode} 
+            scenario={scenario} 
+            setScenario={setScenario} 
+            referenceImages={referenceImages} 
+            onImageUpload={handleImageUpload} 
+            onScriptUpload={handleScriptUpload}
+            onBuildPrompts={handleBuildPrompts} 
             isBuilding={isBuilding}
             scriptFileName={scriptFileName}
-            onScriptUpload={handleScriptUpload}
-            onRemoveScript={handleRemoveScript}
           />
         </div>
-
         <div className="lg:col-span-2">
-          <PromptDisplay 
-            prompts={prompts} 
-            onGenerateImage={handleGenerateImage}
-            onDownloadAllPrompts={handleDownloadAllPrompts}
-            onGenerateAllImages={handleGenerateAllImages}
-            onDownloadAllImages={handleDownloadAllImages}
-            isBatchGenerating={isBatchGenerating}
-            hasGeneratedImages={hasGeneratedImages}
-          />
+          <PromptDisplay prompts={prompts} onGenerateImage={handleGenerateImage} onDownloadAllPrompts={() => downloadPromptsAsXLSX(prompts)} />
         </div>
       </main>
-
-      <ApiKeyModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        apiKeys={apiKeys}
-        onAddKey={handleAddKey}
-        onDeleteKey={handleDeleteKey}
-        onSetActiveKey={handleSetActiveKey}
-        selectedModel={selectedModel}
-        onSelectModel={handleSelectModel}
-      />
+      <ApiKeyModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} apiKeys={apiKeys} onAddKey={handleAddKey} onDeleteKey={handleDeleteKey} onSetActiveKey={handleSetActiveKey} selectedModel={selectedModel} onSelectModel={handleSelectModel} />
     </div>
   );
 }
