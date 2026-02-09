@@ -40,7 +40,7 @@ export interface SavedSession {
     prompts: ScenePrompt[]; // Only stores text data (no images/audio blobs) to save LocalStorage space
 }
 
-type AppMode = 'prehistoric' | 'japan';
+type AppMode = 'prehistoric' | 'japan' | 'manga';
 
 // Cập nhật Style: Thêm Negative prompt chống viền đen mạnh mẽ hơn
 const PREHISTORIC_STYLE = `Style: Award-winning National Geographic Photography. 
@@ -53,6 +53,11 @@ const JAPAN_STYLE = `Style: High-quality Anime Movie Screenshot (Studio Ghibli /
 Keywords: 2D hand-painted background, cell shading, soft amber lighting, nostalgic atmosphere, highly detailed, 4k, emotional art, full screen image, edge to edge, filling the entire frame. 
 Negative prompt: 3D render, photorealistic, realistic, photograph, western cartoon, cgi, low resolution, blurry, black bars, letterboxing, cinema scope, cropped image, frame, borders, vignette, split screen.
 Character: An elderly Japanese woman (70s), kind face, wrinkles, gray hair tied back, wearing simple domestic clothes.`;
+
+// Style Manga: Seinen Style (Vagabond, Kingdom, Vinland Saga vibes)
+const MANGA_STYLE = `Style: Masterpiece Seinen Manga Art (inspired by Takehiko Inoue / Kingdom style).
+Keywords: Detailed ink lines, cross-hatching texture, watercolor wash coloring, dramatic cinematic composition, intense facial expressions, historical atmosphere, dynamic action lines, hand-drawn aesthetic, high contrast, 8k resolution, full screen image.
+Negative prompt: anime, cel shading, bright pop colors, chibi, moe, low quality, blurred, 3d render, glossy skin, modern clothes, black bars, borders, letterboxing.`;
 
 const MAX_REFERENCE_IMAGES = 3;
 
@@ -183,7 +188,7 @@ const TrashIcon: FC<{ className?: string }> = ({ className }) => (
 
 const SparklesIcon: FC<{ className?: string }> = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423Z" />
   </svg>
 );
 
@@ -252,18 +257,24 @@ const ControlPanel: FC<ControlPanelProps> = ({
 
   return (
     <div className="bg-slate-950/50 border border-slate-800 p-6 rounded-2xl flex flex-col gap-6 sticky top-6 shadow-2xl backdrop-blur-md">
-      <div className="flex bg-slate-800 p-1 rounded-xl">
+      <div className="flex bg-slate-800 p-1 rounded-xl gap-1">
         <button 
             onClick={() => setMode('prehistoric')}
-            className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'prehistoric' ? 'bg-emerald-500 text-black shadow-lg' : 'text-slate-400 hover:text-white'}`}
+            className={`flex-1 py-2 px-1 rounded-lg text-xs font-bold transition-all ${mode === 'prehistoric' ? 'bg-emerald-500 text-black shadow-lg' : 'text-slate-400 hover:text-white'}`}
         >
             Người Tiền Sử
         </button>
         <button 
             onClick={() => setMode('japan')}
-            className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'japan' ? 'bg-indigo-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+            className={`flex-1 py-2 px-1 rounded-lg text-xs font-bold transition-all ${mode === 'japan' ? 'bg-indigo-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
         >
             Nhật Bản
+        </button>
+        <button 
+            onClick={() => setMode('manga')}
+            className={`flex-1 py-2 px-1 rounded-lg text-xs font-bold transition-all ${mode === 'manga' ? 'bg-orange-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+        >
+            Manga
         </button>
       </div>
 
@@ -378,7 +389,7 @@ const ControlPanel: FC<ControlPanelProps> = ({
         className={`w-full py-3 px-4 rounded-md font-semibold transition-all flex items-center justify-center ${
             mode === 'prehistoric' 
                 ? 'text-black bg-emerald-500 hover:bg-emerald-400' 
-                : 'text-white bg-indigo-600 hover:bg-indigo-500'
+                : (mode === 'manga' ? 'text-white bg-orange-600 hover:bg-orange-500' : 'text-white bg-indigo-600 hover:bg-indigo-500')
         } disabled:bg-slate-600 disabled:text-slate-400 disabled:cursor-not-allowed shadow-lg mt-2`}
       >
         {isBuilding ? <SpinnerIcon className="animate-spin h-5 w-5 mr-2" /> : null}
@@ -757,7 +768,9 @@ const LibraryModal: FC<LibraryModalProps> = ({ isOpen, onClose, sessions, onDele
                                             {formatDate(session.timestamp)}
                                         </div>
                                         <span className="bg-slate-700 px-2 py-0.5 rounded-full">{session.prompts.length} scenes</span>
-                                        <span className="bg-slate-700 px-2 py-0.5 rounded-full uppercase">{session.mode === 'japan' ? 'JP' : 'PH'}</span>
+                                        <span className="bg-slate-700 px-2 py-0.5 rounded-full uppercase">
+                                            {session.mode === 'japan' ? 'JP' : (session.mode === 'manga' ? 'MG' : 'PH')}
+                                        </span>
                                     </div>
                                 </div>
                                 <div className="flex gap-2">
@@ -1083,7 +1096,11 @@ export default function App() {
           throw new Error("Vui lòng nhập hoặc tải kịch bản.");
       }
 
-      const styleLock = mode === 'prehistoric' ? PREHISTORIC_STYLE : JAPAN_STYLE;
+      // SELECT STYLE BASED ON MODE
+      const styleLock = mode === 'prehistoric' 
+        ? PREHISTORIC_STYLE 
+        : (mode === 'manga' ? MANGA_STYLE : JAPAN_STYLE);
+
       const aiScenes = await analyzeScriptWithAI(fullScript, activeGoogleKey.key, styleLock, mode);
 
       const scenes: ScenePrompt[] = aiScenes.map((scene, index) => {
@@ -1259,8 +1276,8 @@ export default function App() {
             onClick={(e) => { e.preventDefault(); window.location.reload(); }}
             className="flex items-center gap-4 hover:opacity-80 transition-opacity cursor-pointer"
         >
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-black transition-all transform hover:rotate-6 ${mode === 'japan' ? 'bg-gradient-to-br from-indigo-400 to-rose-400' : 'bg-gradient-to-br from-emerald-400 to-teal-400'}`}>
-                {mode === 'japan' ? 'JP' : 'PH'}
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-black transition-all transform hover:rotate-6 ${mode === 'japan' ? 'bg-gradient-to-br from-indigo-400 to-rose-400' : (mode === 'manga' ? 'bg-gradient-to-br from-orange-400 to-red-400' : 'bg-gradient-to-br from-emerald-400 to-teal-400')}`}>
+                {mode === 'japan' ? 'JP' : (mode === 'manga' ? 'MG' : 'PH')}
             </div>
             <div>
                 <h1 className="text-2xl md:text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-rose-400 tracking-tight">
