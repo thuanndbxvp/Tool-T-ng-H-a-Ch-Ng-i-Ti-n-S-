@@ -1,110 +1,5 @@
 
-import { GoogleGenAI, Modality, Type } from "@google/genai";
-import { ImageFile } from '../App';
-
-// Helper: Chuyển đổi Raw PCM (Int16) sang WAV file (có header) để trình duyệt có thể phát
-const pcmToWav = (pcmData: Int16Array, sampleRate: number = 24000): Blob => {
-  const numChannels = 1;
-  const bitsPerSample = 16;
-  const byteRate = (sampleRate * numChannels * bitsPerSample) / 8;
-  const blockAlign = (numChannels * bitsPerSample) / 8;
-  const dataSize = pcmData.length * 2; // 2 bytes per sample
-  const buffer = new ArrayBuffer(44 + dataSize);
-  const view = new DataView(buffer);
-
-  // RIFF chunk descriptor
-  writeString(view, 0, 'RIFF');
-  view.setUint32(4, 36 + dataSize, true);
-  writeString(view, 8, 'WAVE');
-
-  // fmt sub-chunk
-  writeString(view, 12, 'fmt ');
-  view.setUint32(16, 16, true); // Subchunk1Size (16 for PCM)
-  view.setUint16(20, 1, true); // AudioFormat (1 for PCM)
-  view.setUint16(22, numChannels, true); // NumChannels
-  view.setUint32(24, sampleRate, true); // SampleRate
-  view.setUint32(28, byteRate, true); // ByteRate
-  view.setUint16(32, blockAlign, true); // BlockAlign
-  view.setUint16(34, bitsPerSample, true); // BitsPerSample
-
-  // data sub-chunk
-  writeString(view, 36, 'data');
-  view.setUint32(40, dataSize, true);
-
-  // Write PCM samples
-  let offset = 44;
-  for (let i = 0; i < pcmData.length; i++, offset += 2) {
-    view.setInt16(offset, pcmData[i], true);
-  }
-
-  return new Blob([view], { type: 'audio/wav' });
-};
-
-const writeString = (view: DataView, offset: number, string: string) => {
-  for (let i = 0; i < string.length; i++) {
-    view.setUint8(offset + i, string.charCodeAt(i));
-  }
-};
-
-const decodeBase64ToInt16Array = (base64: string): Int16Array => {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  // Convert Uint8Array (bytes) to Int16Array (PCM 16-bit)
-  return new Int16Array(bytes.buffer);
-};
-
-
-export const generateSpeechFromText = async (text: string, apiKey: string, voiceName: string = 'Kore'): Promise<string> => {
-  if (!apiKey) throw new Error("Vui lòng cấu hình API Key Google.");
-
-  const ai = new GoogleGenAI({ apiKey });
-
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
-      contents: {
-        parts: [{ text: text }]
-      },
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: voiceName },
-          },
-        },
-      },
-    });
-
-    const candidate = response.candidates?.[0];
-    if (!candidate) throw new Error("Không nhận được phản hồi âm thanh.");
-
-    let base64Audio = "";
-    
-    for (const part of candidate.content.parts) {
-      if (part.inlineData && part.inlineData.data) {
-        base64Audio = part.inlineData.data;
-        break;
-      }
-    }
-
-    if (!base64Audio) throw new Error("Không tìm thấy dữ liệu âm thanh.");
-
-    // Convert raw PCM base64 to WAV Blob URL
-    const pcmData = decodeBase64ToInt16Array(base64Audio);
-    // Gemini TTS usually outputs 24000Hz
-    const wavBlob = pcmToWav(pcmData, 24000); 
-    
-    return URL.createObjectURL(wavBlob);
-
-  } catch (error) {
-    console.error("Gemini TTS Error:", error);
-    throw new Error(error instanceof Error ? error.message : "Lỗi tạo giọng đọc.");
-  }
-};
+import { GoogleGenAI, Type } from "@google/genai";
 
 export const standardizeScriptWithAI = async (script: string, apiKey: string): Promise<string> => {
   if (!apiKey) throw new Error("Vui lòng cấu hình API Key Google.");
@@ -112,7 +7,7 @@ export const standardizeScriptWithAI = async (script: string, apiKey: string): P
   const ai = new GoogleGenAI({ apiKey });
 
   // System Instruction được cập nhật để đảm bảo tính toàn vẹn nội dung
-  const systemInstruction = `You are a strict text cleaning engine for Text-to-Speech (TTS) preparation.
+  const systemInstruction = `You are a strict text cleaning engine.
 Your GOAL: Remove non-spoken formatting and metadata without changing a single spoken word.
 
 STRICT RULES:
@@ -148,12 +43,36 @@ Output ONLY the cleaned text.`;
   }
 };
 
-export const analyzeScriptWithAI = async (script: string, apiKey: string, styleLock: string, mode: string): Promise<any[]> => {
+export const analyzeScriptWithAI = async (
+    script: string,
+    referenceImages: { base64: string; mimeType: string }[],
+    apiKey: string, 
+    styleLock: string, 
+    mode: string,
+    segmentationMode: 'ai' | 'punctuation'
+): Promise<any[]> => {
   if (!apiKey) throw new Error("Vui lòng cấu hình API Key Google.");
   
   const ai = new GoogleGenAI({ apiKey });
   
-  // Updated System Instruction: Logic phân đoạn Semantic Segmentation (7-15 từ)
+  // Construct Segmentation Instruction based on mode
+  let segmentationInstruction = "";
+  if (segmentationMode === 'ai') {
+      segmentationInstruction = `**TASK 2: SEGMENTATION (STRICT & CRITICAL - AI MODE)**
+Do NOT simply split by sentences or punctuation. Use **Semantic Segmentation**.
+- **Rule 1 (Length)**: Break the script into short segments/lines of approximately **7-15 words**. This is optimized for visual pacing.
+- **Rule 2 (Semantic Integrity)**: Do NOT cut in the middle of a thought or content just to meet the word count. Each segment must be a complete logical thought, phrase, or meaningful unit.
+- **Rule 3 (Fidelity)**: STRICTLY **do not add, remove, or translate ANY words** from the original script. The combined output of "scriptLine" fields must equal the input text exactly.
+- **Rule 4 (Format)**: Each segmented line corresponds to one item (one Scene) in the JSON output array.`;
+  } else {
+      segmentationInstruction = `**TASK 2: SEGMENTATION (STRICT & CRITICAL - PUNCTUATION MODE)**
+Split the script strictly based on sentence-ending punctuation marks (., ?, !, ...).
+- **Rule 1 (Punctuation)**: Start a new segment after every sentence-ending punctuation mark. If a sentence is extremely long (>50 words), you may split at a major clause (comma/semicolon) to keep prompts manageable.
+- **Rule 2 (Fidelity)**: STRICTLY **do not add, remove, or translate ANY words** from the original script. The combined output of "scriptLine" fields must equal the input text exactly.
+- **Rule 3 (Format)**: Each segmented line corresponds to one item (one Scene) in the JSON output array.`;
+  }
+  
+  // Updated System Instruction
   const systemInstruction = `You are a professional storyboard artist and script analyst. 
 Target Audience: Elderly women over 60 years old. 
 Story Tone: Nostalgic, gentle, slightly melancholic ("u buồn"), deeply emotional, focused on memories and everyday life. 
@@ -167,18 +86,14 @@ Story Tone: Nostalgic, gentle, slightly melancholic ("u buồn"), deeply emotion
   - **Grandchildren**: Children (5s-10s).
 - **Environment**: Maintain a consistent setting (e.g., old traditional house, tatami mats) unless the scene changes.
 
-**TASK 2: SEGMENTATION (STRICT & CRITICAL)**
-Do NOT simply split by sentences or punctuation. Use **Semantic Segmentation**.
-- **Rule 1 (Length)**: Break the script into short segments/lines of approximately **7-15 words**. This is optimized for visual pacing and TTS breathing.
-- **Rule 2 (Semantic Integrity)**: Do NOT cut in the middle of a thought or content just to meet the word count. Each segment must be a complete logical thought, phrase, or meaningful unit.
-- **Rule 3 (Fidelity)**: STRICTLY **do not add, remove, or translate ANY words** from the original script. The combined output of "scriptLine" fields must equal the input text exactly.
-- **Rule 4 (Format)**: Each segmented line corresponds to one item (one Scene) in the JSON output array.
+${segmentationInstruction}
 
 **TASK 3: PROMPT GENERATION**
 For each segmented line (Scene), generate a JSON object with:
-1. "scriptLine": The exact segmented text line (approx 7-15 words) from the script based on the rules above.
+1. "scriptLine": The exact segmented text line from the script based on the rules above.
 2. "phase": The narrative phase (e.g., "Introduction", "Climax").
 3. "imagePrompt": A self-contained, highly detailed visual description.
+   - **STYLE INJECTION**: Analyze the attached Reference Images (if any). Extract their art style (e.g., color palette, lighting key, texture, rendering style) and WRITE IT EXPLICITLY into the prompt description.
    - **MANDATORY PREFIX**: Start exactly with: "${styleLock}"
    - **CHARACTER BLOCK (REDUNDANT)**: You MUST explicitly describe the characters' appearance in EVERY SINGLE PROMPT. Do not assume the AI remembers from the previous prompt.
      - *Bad*: "He hands her a cup."
@@ -189,10 +104,30 @@ For each segmented line (Scene), generate a JSON object with:
 
 OUTPUT ONLY A JSON ARRAY.`;
 
+  // --- CONSTRUCT MULTIMODAL CONTENT ---
+  const parts: any[] = [];
+  
+  // 1. Add Reference Images
+  if (referenceImages && referenceImages.length > 0) {
+      referenceImages.forEach(img => {
+          parts.push({
+              inlineData: {
+                  mimeType: img.mimeType,
+                  data: img.base64
+              }
+          });
+      });
+      // Add a text cue for the images
+      parts.push({ text: "REFER TO THE ABOVE IMAGES FOR VISUAL STYLE (Color, Lighting, Texture)." });
+  }
+
+  // 2. Add The Script
+  parts.push({ text: script });
+
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
-      contents: script,
+      contents: { parts }, // Send both images and text
       config: {
         systemInstruction,
         responseMimeType: "application/json",
@@ -219,57 +154,5 @@ OUTPUT ONLY A JSON ARRAY.`;
   } catch (error) {
     console.error("AI Analysis Error:", error);
     throw new Error("Không thể phân tích kịch bản với Gemini 3 Pro. Vui lòng kiểm tra API Key.");
-  }
-};
-
-export const generateImageFromPrompt = async (prompt: string, referenceImages: ImageFile[], apiKey: string, model: string, forceAspectRatio169: boolean = true): Promise<string> => {
-  if (!apiKey) throw new Error("Vui lòng cấu hình API Key Google.");
-  
-  try {
-    const ai = new GoogleGenAI({ apiKey });
-    
-    const imageParts = referenceImages.map(img => ({
-      inlineData: {
-        data: img.base64,
-        mimeType: img.mimeType,
-      }
-    }));
-
-    // Safety Patch: Force no black bars
-    // Thêm các từ khóa mạnh hơn để ép full màn hình
-    const safePrompt = prompt + (forceAspectRatio169 ? ", --ar 16:9, full screen, no borders, no black bars, no letterbox, filling the entire frame" : "");
-    const textPart = { text: safePrompt };
-
-    const response = await ai.models.generateContent({
-      model: model || 'gemini-3-pro-image-preview',
-      contents: {
-        parts: [...imageParts, textPart]
-      },
-      config: {
-        // responseModalities removed as it's not strictly required for image-only models and can conflict
-        imageConfig: {
-          aspectRatio: forceAspectRatio169 ? "16:9" : "1:1",
-          imageSize: "1K"
-        }
-      },
-    });
-
-    const candidate = response.candidates?.[0];
-    if (!candidate) throw new Error("Không nhận được kết quả từ AI.");
-
-    for (const part of candidate.content.parts) {
-      if (part.inlineData) {
-        const base64ImageBytes: string = part.inlineData.data;
-        const mimeType = part.inlineData.mimeType;
-        return `data:${mimeType};base64,${base64ImageBytes}`;
-      }
-    }
-
-    throw new Error(candidate.finishReason ? `AI từ chối tạo: ${candidate.finishReason}` : "Không có dữ liệu ảnh trả về.");
-
-  } catch (error) {
-    console.error("Gemini Image Error:", error);
-    // Propagate the original error message for better handling in App.tsx (e.g. 403 Permission Denied)
-    throw error;
   }
 };
