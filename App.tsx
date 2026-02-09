@@ -40,13 +40,14 @@ export interface SavedSession {
     prompts: ScenePrompt[]; // Only stores text data (no images/audio blobs) to save LocalStorage space
 }
 
-type AppMode = 'prehistoric' | 'japan' | 'manga';
+// Thay đổi mode: Bỏ prehistoric, thêm general
+type AppMode = 'general' | 'japan' | 'manga';
 
-// Cập nhật Style: Thêm Negative prompt chống viền đen mạnh mẽ hơn
-const PREHISTORIC_STYLE = `Style: Award-winning National Geographic Photography. 
-Keywords: 8k resolution, ultra-realistic, cinematic lighting, film grain, raw photo, shallow depth of field, 45mm lens, full screen image, edge to edge, filling the entire frame. 
-Negative prompt: cartoon, anime, 3d render, painting, drawing, illustration, low quality, black bars, letterboxing, cinema scope, cropped image, frame, borders, vignette, split screen.
-Character Consistency: match the uploaded reference exactly.`;
+// Style cho Kịch bản chung: Tự do, phụ thuộc vào ảnh tham chiếu
+const GENERAL_STYLE = `Style: High quality, Cinematic, Detailed.
+Keywords: 8k resolution, highly detailed, professional composition, atmospheric lighting, sharp focus.
+Negative prompt: low quality, blurry, distorted, bad anatomy, watermark, text, signature.
+Instruction: Analyze the style of the provided reference images (if any) and apply it to this scene.`;
 
 // Cập nhật Style: Thêm Negative prompt chống viền đen mạnh mẽ hơn
 const JAPAN_STYLE = `Style: High-quality Anime Movie Screenshot (Studio Ghibli / Makoto Shinkai inspired). 
@@ -59,7 +60,8 @@ const MANGA_STYLE = `Style: Masterpiece Seinen Manga Art (inspired by Takehiko I
 Keywords: Detailed ink lines, cross-hatching texture, watercolor wash coloring, dramatic cinematic composition, intense facial expressions, historical atmosphere, dynamic action lines, hand-drawn aesthetic, high contrast, 8k resolution, full screen image.
 Negative prompt: anime, cel shading, bright pop colors, chibi, moe, low quality, blurred, 3d render, glossy skin, modern clothes, black bars, borders, letterboxing.`;
 
-const MAX_REFERENCE_IMAGES = 3;
+// Tăng giới hạn ảnh tham chiếu lên 5
+const MAX_REFERENCE_IMAGES = 5;
 
 // Các giọng đọc hỗ trợ bởi Gemini (gemini-2.5-flash-preview-tts)
 // Zephyr được đưa lên đầu làm mặc định
@@ -188,7 +190,7 @@ const TrashIcon: FC<{ className?: string }> = ({ className }) => (
 
 const SparklesIcon: FC<{ className?: string }> = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423Z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
   </svg>
 );
 
@@ -251,28 +253,41 @@ const ControlPanel: FC<ControlPanelProps> = ({
   const scriptReady = useMemo(() => scenario.trim() !== "" || scriptFileName !== null, [scenario, scriptFileName]);
 
   const canBuild = useMemo(() => {
-      if (mode === 'prehistoric') return scriptReady && referenceImages.length === MAX_REFERENCE_IMAGES;
+      // General mode can have reference images but doesn't STRICTLY force 5, but we check if images are valid
+      if (mode === 'general') return scriptReady; 
       return scriptReady;
-  }, [mode, referenceImages, scriptReady]);
+  }, [mode, scriptReady]);
 
   return (
     <div className="bg-slate-950/50 border border-slate-800 p-6 rounded-2xl flex flex-col gap-6 sticky top-6 shadow-2xl backdrop-blur-md">
-      <div className="flex bg-slate-800 p-1 rounded-xl gap-1">
+      <div className="flex flex-row gap-2 bg-slate-900/50 p-2 rounded-xl border border-slate-800">
         <button 
-            onClick={() => setMode('prehistoric')}
-            className={`flex-1 py-2 px-1 rounded-lg text-xs font-bold transition-all ${mode === 'prehistoric' ? 'bg-emerald-500 text-black shadow-lg' : 'text-slate-400 hover:text-white'}`}
+            onClick={() => setMode('general')}
+            className={`flex-1 py-3 px-2 rounded-lg text-xs font-bold transition-all border shadow-sm flex items-center justify-center ${
+                mode === 'general' 
+                ? 'bg-blue-600 text-white border-blue-500 shadow-blue-500/20' 
+                : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white hover:bg-slate-700'
+            }`}
         >
-            Người Tiền Sử
+            Kịch bản chung
         </button>
         <button 
             onClick={() => setMode('japan')}
-            className={`flex-1 py-2 px-1 rounded-lg text-xs font-bold transition-all ${mode === 'japan' ? 'bg-indigo-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+            className={`flex-1 py-3 px-2 rounded-lg text-xs font-bold transition-all border shadow-sm flex items-center justify-center ${
+                mode === 'japan' 
+                ? 'bg-indigo-600 text-white border-indigo-500 shadow-indigo-500/20' 
+                : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white hover:bg-slate-700'
+            }`}
         >
             Nhật Bản
         </button>
         <button 
             onClick={() => setMode('manga')}
-            className={`flex-1 py-2 px-1 rounded-lg text-xs font-bold transition-all ${mode === 'manga' ? 'bg-orange-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+            className={`flex-1 py-3 px-2 rounded-lg text-xs font-bold transition-all border shadow-sm flex items-center justify-center ${
+                mode === 'manga' 
+                ? 'bg-orange-600 text-white border-orange-500 shadow-orange-500/20' 
+                : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white hover:bg-slate-700'
+            }`}
         >
             Manga
         </button>
@@ -280,44 +295,47 @@ const ControlPanel: FC<ControlPanelProps> = ({
 
       <h2 className="text-xl font-bold text-emerald-400">1. Setup</h2>
 
-      {/* Voice Selection (TTS) - Placed here for session consistency visibility */}
-      <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
-        <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-                <SpeakerIcon className="h-4 w-4 text-emerald-400" />
-                <label className="text-sm font-bold text-slate-300">Voice Persona (TTS)</label>
+      {/* Voice Selection (TTS) - Hidden for General Mode */}
+      {mode !== 'general' && (
+        <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 animate-fade-in">
+            <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                    <SpeakerIcon className="h-4 w-4 text-emerald-400" />
+                    <label className="text-sm font-bold text-slate-300">Voice Persona (TTS)</label>
+                </div>
+                {/* Preview Button */}
+                <button
+                    onClick={() => onPreviewVoice(selectedVoice)}
+                    disabled={isVoicePreviewing}
+                    title="Nghe thử"
+                    className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white p-1.5 rounded-md transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-wait"
+                >
+                    {isVoicePreviewing ? <SpinnerIcon className="animate-spin h-3 w-3" /> : <PlayIcon className="h-3 w-3" />}
+                </button>
             </div>
-            {/* Preview Button */}
-            <button
-                onClick={() => onPreviewVoice(selectedVoice)}
-                disabled={isVoicePreviewing}
-                title="Nghe thử"
-                className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white p-1.5 rounded-md transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-wait"
+            <select
+                value={selectedVoice}
+                onChange={(e) => onSelectVoice(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 p-2.5 rounded-lg focus:ring-2 focus:ring-emerald-500 transition text-white text-sm"
             >
-                {isVoicePreviewing ? <SpinnerIcon className="animate-spin h-3 w-3" /> : <PlayIcon className="h-3 w-3" />}
-            </button>
+                {AVAILABLE_VOICES.map(voice => (
+                    <option key={voice.id} value={voice.id}>{voice.name} - {voice.desc}</option>
+                ))}
+            </select>
+            <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
+                * Gemini hiện hỗ trợ 5 giọng đọc đa ngôn ngữ (Multilingual).
+                <br/>Các mô tả trên được tối ưu cho ngữ cảnh phim Nhật Bản.
+            </p>
         </div>
-        <select
-            value={selectedVoice}
-            onChange={(e) => onSelectVoice(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 p-2.5 rounded-lg focus:ring-2 focus:ring-emerald-500 transition text-white text-sm"
-        >
-            {AVAILABLE_VOICES.map(voice => (
-                <option key={voice.id} value={voice.id}>{voice.name} - {voice.desc}</option>
-            ))}
-        </select>
-        <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
-            * Gemini hiện hỗ trợ 5 giọng đọc đa ngôn ngữ (Multilingual).
-            <br/>Các mô tả trên được tối ưu cho ngữ cảnh phim Nhật Bản.
-        </p>
-      </div>
+      )}
       
-      {mode === 'prehistoric' && (
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">📸 Upload {MAX_REFERENCE_IMAGES} Character Images</label>
+      {/* Reference Images - Only for General Mode */}
+      {mode === 'general' && (
+          <div className="animate-fade-in">
+            <label className="block text-sm font-medium text-slate-300 mb-2">📸 Ảnh tham chiếu phong cách (Max {MAX_REFERENCE_IMAGES})</label>
             <div 
               onClick={() => charImgRef.current?.click()}
-              className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-600 border-dashed rounded-md cursor-pointer hover:border-emerald-500 transition-colors"
+              className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-600 border-dashed rounded-md cursor-pointer hover:border-emerald-500 transition-colors bg-slate-800/30"
             >
               <div className="space-y-1 text-center">
                 <UploadIcon className="mx-auto h-12 w-12 text-slate-400" />
@@ -325,10 +343,13 @@ const ControlPanel: FC<ControlPanelProps> = ({
               </div>
             </div>
             <input ref={charImgRef} type="file" accept="image/*" multiple onChange={onImageUpload} className="hidden" />
+            <p className="text-[10px] text-slate-500 mt-2 italic">* AI sẽ phân tích các ảnh này để nhúng phong cách vào Prompt tạo ảnh.</p>
             {referenceImages.length > 0 && (
-              <div className="mt-4 grid grid-cols-3 gap-4">
+              <div className="mt-4 grid grid-cols-3 gap-2">
                 {referenceImages.map((img) => (
-                  <img key={img.name} src={img.dataUrl} alt={img.name} className="rounded-md object-cover aspect-square border border-slate-700 shadow-sm" />
+                  <div key={img.name} className="relative group">
+                     <img src={img.dataUrl} alt={img.name} className="rounded-md object-cover aspect-square border border-slate-700 shadow-sm" />
+                  </div>
                 ))}
               </div>
             )}
@@ -387,8 +408,8 @@ const ControlPanel: FC<ControlPanelProps> = ({
         onClick={onBuildPrompts}
         disabled={!canBuild || isBuilding}
         className={`w-full py-3 px-4 rounded-md font-semibold transition-all flex items-center justify-center ${
-            mode === 'prehistoric' 
-                ? 'text-black bg-emerald-500 hover:bg-emerald-400' 
+            mode === 'general' 
+                ? 'text-white bg-blue-600 hover:bg-blue-500' 
                 : (mode === 'manga' ? 'text-white bg-orange-600 hover:bg-orange-500' : 'text-white bg-indigo-600 hover:bg-indigo-500')
         } disabled:bg-slate-600 disabled:text-slate-400 disabled:cursor-not-allowed shadow-lg mt-2`}
       >
@@ -401,10 +422,11 @@ const ControlPanel: FC<ControlPanelProps> = ({
 
 interface PromptCardProps {
     prompt: ScenePrompt;
+    mode: AppMode;
     onGenerateImage: (id: number) => void;
     onGenerateAudio: (id: number) => void;
 }
-const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage, onGenerateAudio }) => {
+const PromptCard: FC<PromptCardProps> = ({ prompt, mode, onGenerateImage, onGenerateAudio }) => {
     const [copied, setCopied] = useState('');
 
     const handleCopy = (text: string, type: string) => {
@@ -458,7 +480,7 @@ const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage, onGenerateAu
 
             <div className="mt-4 pt-4 border-t border-slate-800 grid md:grid-cols-2 gap-4">
                 {/* Image Section */}
-                <div>
+                <div className={mode === 'general' ? 'md:col-span-2' : ''}>
                     {prompt.isLoading ? (
                          <div className="w-full aspect-video bg-slate-800 rounded-lg flex items-center justify-center">
                             <SpinnerIcon className="animate-spin h-8 w-8 text-emerald-500" />
@@ -491,30 +513,32 @@ const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage, onGenerateAu
                     )}
                 </div>
 
-                {/* Audio Section */}
-                <div className="flex flex-col justify-end">
-                     {prompt.isAudioLoading ? (
-                        <div className="w-full h-10 bg-slate-800 rounded-lg flex items-center justify-center gap-2 text-sm text-slate-400 border border-slate-700">
-                             <SpinnerIcon className="animate-spin h-4 w-4 text-indigo-500" /> Generating Voice...
-                        </div>
-                     ) : prompt.audioUrl ? (
-                         <div className="space-y-2">
-                             <div className="flex items-center gap-2 bg-slate-100 rounded-lg p-1">
-                                <audio controls src={prompt.audioUrl} className="w-full h-8 block" />
-                             </div>
-                             <button 
-                                onClick={() => onGenerateAudio(prompt.id)}
-                                className="w-full text-xs text-slate-500 hover:text-indigo-400 flex items-center justify-center gap-1 transition-colors"
-                             >
-                                <RefreshIcon className="h-3 w-3" /> Regenerate Voice
-                             </button>
-                         </div>
-                     ) : (
-                         <button onClick={() => onGenerateAudio(prompt.id)} className="w-full py-2 bg-slate-800 hover:bg-indigo-600 text-indigo-200 hover:text-white transition-colors rounded-lg text-sm font-semibold shadow-md border border-slate-700 flex items-center justify-center gap-2">
-                             <SpeakerIcon className="h-4 w-4" /> Generate Voice
-                         </button>
-                     )}
-                </div>
+                {/* Audio Section - Hidden in General Mode */}
+                {mode !== 'general' && (
+                    <div className="flex flex-col justify-end">
+                        {prompt.isAudioLoading ? (
+                            <div className="w-full h-10 bg-slate-800 rounded-lg flex items-center justify-center gap-2 text-sm text-slate-400 border border-slate-700">
+                                <SpinnerIcon className="animate-spin h-4 w-4 text-indigo-500" /> Generating Voice...
+                            </div>
+                        ) : prompt.audioUrl ? (
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2 bg-slate-100 rounded-lg p-1">
+                                    <audio controls src={prompt.audioUrl} className="w-full h-8 block" />
+                                </div>
+                                <button 
+                                    onClick={() => onGenerateAudio(prompt.id)}
+                                    className="w-full text-xs text-slate-500 hover:text-indigo-400 flex items-center justify-center gap-1 transition-colors"
+                                >
+                                    <RefreshIcon className="h-3 w-3" /> Regenerate Voice
+                                </button>
+                            </div>
+                        ) : (
+                            <button onClick={() => onGenerateAudio(prompt.id)} className="w-full py-2 bg-slate-800 hover:bg-indigo-600 text-indigo-200 hover:text-white transition-colors rounded-lg text-sm font-semibold shadow-md border border-slate-700 flex items-center justify-center gap-2">
+                                <SpeakerIcon className="h-4 w-4" /> Generate Voice
+                            </button>
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -522,6 +546,7 @@ const PromptCard: FC<PromptCardProps> = ({ prompt, onGenerateImage, onGenerateAu
 
 interface PromptDisplayProps {
     prompts: ScenePrompt[];
+    mode: AppMode;
     onGenerateImage: (id: number) => void;
     onDownloadAllPrompts: () => void;
     onDownloadPromptsTxt: () => void; // New Prop
@@ -534,7 +559,7 @@ interface PromptDisplayProps {
     isGeneratingAllAudio: boolean;
 }
 const PromptDisplay: FC<PromptDisplayProps> = ({ 
-    prompts, onGenerateImage, onDownloadAllPrompts, onDownloadPromptsTxt, onGenerateAll, onDownloadAllImages, isGeneratingAll,
+    prompts, mode, onGenerateImage, onDownloadAllPrompts, onDownloadPromptsTxt, onGenerateAll, onDownloadAllImages, isGeneratingAll,
     onGenerateAudio, onGenerateAllAudio, onDownloadAllAudio, isGeneratingAllAudio
 }) => {
     const hasMissingImages = useMemo(() => prompts.some(p => !p.generatedImageUrl), [prompts]);
@@ -561,33 +586,35 @@ const PromptDisplay: FC<PromptDisplayProps> = ({
                     2. AI Generated Prompts ({prompts.length} scenes)
                 </h2>
                 <div className="flex flex-col md:flex-row gap-2">
-                    <div className="flex gap-2">
-                        {/* Audio Buttons */}
-                        <button
-                             onClick={onGenerateAllAudio}
-                             disabled={isGeneratingAllAudio || !hasMissingAudio}
-                             className={`text-xs font-bold py-2 px-3 rounded-lg transition-all flex items-center gap-2 shadow-md ${
-                                isGeneratingAllAudio
-                                    ? 'bg-slate-600 cursor-not-allowed text-slate-400'
-                                    : hasMissingAudio
-                                        ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
-                                        : 'bg-slate-700 text-slate-400 cursor-default'
-                             }`}
-                             title="Tạo giọng đọc cho các câu còn thiếu"
-                        >
-                            {isGeneratingAllAudio ? <SpinnerIcon className="animate-spin h-4 w-4" /> : <SpeakerIcon className="h-4 w-4" />}
-                            {isGeneratingAllAudio ? 'TTS...' : 'Gen All Audio'}
-                        </button>
-                        
-                         {hasGeneratedAudio && (
+                    {/* Audio Buttons - Hidden in General Mode */}
+                    {mode !== 'general' && (
+                        <div className="flex gap-2">
                             <button
-                                onClick={onDownloadAllAudio}
-                                className="bg-indigo-900/50 hover:bg-indigo-800 text-indigo-300 text-xs font-semibold py-2 px-3 rounded-lg transition-all flex items-center gap-2 shadow-md border border-indigo-700/50"
+                                onClick={onGenerateAllAudio}
+                                disabled={isGeneratingAllAudio || !hasMissingAudio}
+                                className={`text-xs font-bold py-2 px-3 rounded-lg transition-all flex items-center gap-2 shadow-md ${
+                                    isGeneratingAllAudio
+                                        ? 'bg-slate-600 cursor-not-allowed text-slate-400'
+                                        : hasMissingAudio
+                                            ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                                            : 'bg-slate-700 text-slate-400 cursor-default'
+                                }`}
+                                title="Tạo giọng đọc cho các câu còn thiếu"
                             >
-                                <MusicalNoteIcon className="h-4 w-4" /> ZIP Audio
+                                {isGeneratingAllAudio ? <SpinnerIcon className="animate-spin h-4 w-4" /> : <SpeakerIcon className="h-4 w-4" />}
+                                {isGeneratingAllAudio ? 'TTS...' : 'Gen All Audio'}
                             </button>
-                        )}
-                    </div>
+                            
+                            {hasGeneratedAudio && (
+                                <button
+                                    onClick={onDownloadAllAudio}
+                                    className="bg-indigo-900/50 hover:bg-indigo-800 text-indigo-300 text-xs font-semibold py-2 px-3 rounded-lg transition-all flex items-center gap-2 shadow-md border border-indigo-700/50"
+                                >
+                                    <MusicalNoteIcon className="h-4 w-4" /> ZIP Audio
+                                </button>
+                            )}
+                        </div>
+                    )}
 
                     <div className="flex gap-2">
                         {/* Image Buttons */}
@@ -627,7 +654,7 @@ const PromptDisplay: FC<PromptDisplayProps> = ({
             </div>
              <div className="space-y-4 max-h-[85vh] overflow-y-auto pr-2 custom-scrollbar">
                 {prompts.map((p) => (
-                    <PromptCard key={p.id} prompt={p} onGenerateImage={onGenerateImage} onGenerateAudio={onGenerateAudio} />
+                    <PromptCard key={p.id} prompt={p} mode={mode} onGenerateImage={onGenerateImage} onGenerateAudio={onGenerateAudio} />
                 ))}
              </div>
         </div>
@@ -769,7 +796,7 @@ const LibraryModal: FC<LibraryModalProps> = ({ isOpen, onClose, sessions, onDele
                                         </div>
                                         <span className="bg-slate-700 px-2 py-0.5 rounded-full">{session.prompts.length} scenes</span>
                                         <span className="bg-slate-700 px-2 py-0.5 rounded-full uppercase">
-                                            {session.mode === 'japan' ? 'JP' : (session.mode === 'manga' ? 'MG' : 'PH')}
+                                            {session.mode === 'japan' ? 'JP' : (session.mode === 'manga' ? 'MG' : 'GN')}
                                         </span>
                                     </div>
                                 </div>
@@ -1074,11 +1101,6 @@ export default function App() {
         return;
     }
 
-    if (mode === 'prehistoric' && referenceImages.length < MAX_REFERENCE_IMAGES) {
-      setError(`Cần đủ ${MAX_REFERENCE_IMAGES} ảnh tham chiếu.`);
-      return;
-    }
-
     setIsBuilding(true);
     setError(null);
 
@@ -1097,8 +1119,8 @@ export default function App() {
       }
 
       // SELECT STYLE BASED ON MODE
-      const styleLock = mode === 'prehistoric' 
-        ? PREHISTORIC_STYLE 
+      const styleLock = mode === 'general' 
+        ? GENERAL_STYLE 
         : (mode === 'manga' ? MANGA_STYLE : JAPAN_STYLE);
 
       const aiScenes = await analyzeScriptWithAI(fullScript, activeGoogleKey.key, styleLock, mode);
@@ -1123,7 +1145,7 @@ export default function App() {
     } finally {
       setIsBuilding(false);
     }
-  }, [mode, referenceImages, scenario, scriptFileContent, scriptFileName, apiKeys, downloadPromptsAsXLSX, saveToLibrary]);
+  }, [mode, scenario, scriptFileContent, scriptFileName, apiKeys, downloadPromptsAsXLSX, saveToLibrary]);
 
   const handleGenerateImage = useCallback(async (sceneId: number) => {
     const promptToGenerate = prompts.find(p => p.id === sceneId);
@@ -1136,7 +1158,9 @@ export default function App() {
     }
     setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, isLoading: true } : p));
     try {
-        const imageUrl = await generateImageFromPrompt(promptToGenerate.imagePrompt, mode === 'prehistoric' ? referenceImages : [], activeGoogleKey.key, selectedModel, true);
+        // Chỉ gửi ảnh tham chiếu nếu đang ở mode General
+        const refImages = mode === 'general' ? referenceImages : [];
+        const imageUrl = await generateImageFromPrompt(promptToGenerate.imagePrompt, refImages, activeGoogleKey.key, selectedModel, true);
         setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, generatedImageUrl: imageUrl, isLoading: false } : p));
     } catch (err) {
         setError(`Lỗi tạo ảnh Scene ${sceneId}: ${err instanceof Error ? err.message : 'Unknown'}`);
@@ -1145,6 +1169,9 @@ export default function App() {
   }, [prompts, referenceImages, apiKeys, selectedModel, mode]);
 
   const handleGenerateAudio = useCallback(async (sceneId: number) => {
+      // Audio generation disabled for general mode
+      if (mode === 'general') return;
+
       const promptToGenerate = prompts.find(p => p.id === sceneId);
       if (!promptToGenerate) return;
       const activeGoogleKey = apiKeys.find(k => k.provider === 'Google' && k.isActive);
@@ -1163,7 +1190,7 @@ export default function App() {
           setError(`Lỗi tạo giọng đọc Scene ${sceneId}: ${err instanceof Error ? err.message : 'Unknown'}`);
           setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, isAudioLoading: false } : p));
       }
-  }, [prompts, apiKeys, selectedVoice]);
+  }, [prompts, apiKeys, selectedVoice, mode]);
 
   const handleGenerateAllImages = useCallback(async () => {
       const activeGoogleKey = apiKeys.find(k => k.provider === 'Google' && k.isActive);
@@ -1186,6 +1213,9 @@ export default function App() {
   }, [apiKeys, prompts, handleGenerateImage]);
 
   const handleGenerateAllAudio = useCallback(async () => {
+      // Audio generation disabled for general mode
+      if (mode === 'general') return;
+
       const activeGoogleKey = apiKeys.find(k => k.provider === 'Google' && k.isActive);
       if (!activeGoogleKey) {
           setError("Cần API Key Google.");
@@ -1203,7 +1233,7 @@ export default function App() {
           } catch (e) { console.error(e); }
       }
       setIsGeneratingAllAudio(false);
-  }, [apiKeys, prompts, handleGenerateAudio]);
+  }, [apiKeys, prompts, handleGenerateAudio, mode]);
 
   const handleDownloadAllImages = useCallback(async () => {
       const imagesToZip = prompts.filter(p => p.generatedImageUrl);
@@ -1276,8 +1306,8 @@ export default function App() {
             onClick={(e) => { e.preventDefault(); window.location.reload(); }}
             className="flex items-center gap-4 hover:opacity-80 transition-opacity cursor-pointer"
         >
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-black transition-all transform hover:rotate-6 ${mode === 'japan' ? 'bg-gradient-to-br from-indigo-400 to-rose-400' : (mode === 'manga' ? 'bg-gradient-to-br from-orange-400 to-red-400' : 'bg-gradient-to-br from-emerald-400 to-teal-400')}`}>
-                {mode === 'japan' ? 'JP' : (mode === 'manga' ? 'MG' : 'PH')}
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-black transition-all transform hover:rotate-6 ${mode === 'japan' ? 'bg-gradient-to-br from-indigo-400 to-rose-400' : (mode === 'manga' ? 'bg-gradient-to-br from-orange-400 to-red-400' : 'bg-gradient-to-br from-blue-400 to-cyan-400')}`}>
+                {mode === 'japan' ? 'JP' : (mode === 'manga' ? 'MG' : 'GN')}
             </div>
             <div>
                 <h1 className="text-2xl md:text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-rose-400 tracking-tight">
@@ -1337,6 +1367,7 @@ export default function App() {
         <div className="lg:col-span-8 xl:col-span-9">
           <PromptDisplay 
             prompts={prompts} 
+            mode={mode}
             onGenerateImage={handleGenerateImage} 
             onDownloadAllPrompts={() => downloadPromptsAsXLSX(prompts)} 
             onDownloadPromptsTxt={handleDownloadPromptsAsTxt}
