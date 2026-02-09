@@ -32,18 +32,26 @@ export interface ApiKey {
     isActive: boolean;
 }
 
+export interface SavedSession {
+    id: string;
+    name: string;
+    timestamp: number;
+    mode: AppMode;
+    prompts: ScenePrompt[]; // Only stores text data (no images/audio blobs) to save LocalStorage space
+}
+
 type AppMode = 'prehistoric' | 'japan';
 
-// Cập nhật Style: Thêm Negative prompt chống viền đen
+// Cập nhật Style: Thêm Negative prompt chống viền đen mạnh mẽ hơn
 const PREHISTORIC_STYLE = `Style: Award-winning National Geographic Photography. 
-Keywords: 8k resolution, ultra-realistic, cinematic lighting, film grain, raw photo, shallow depth of field, 45mm lens, full screen, edge to edge. 
-Negative prompt: cartoon, anime, 3d render, painting, drawing, illustration, low quality, black bars, letterboxing, cinema scope, cropped image, frame, borders.
+Keywords: 8k resolution, ultra-realistic, cinematic lighting, film grain, raw photo, shallow depth of field, 45mm lens, full screen image, edge to edge, filling the entire frame. 
+Negative prompt: cartoon, anime, 3d render, painting, drawing, illustration, low quality, black bars, letterboxing, cinema scope, cropped image, frame, borders, vignette, split screen.
 Character Consistency: match the uploaded reference exactly.`;
 
-// Cập nhật Style: Thêm Negative prompt chống viền đen
+// Cập nhật Style: Thêm Negative prompt chống viền đen mạnh mẽ hơn
 const JAPAN_STYLE = `Style: High-quality Anime Movie Screenshot (Studio Ghibli / Makoto Shinkai inspired). 
-Keywords: 2D hand-painted background, cell shading, soft amber lighting, nostalgic atmosphere, highly detailed, 4k, emotional art, full screen, no black bars. 
-Negative prompt: 3D render, photorealistic, realistic, photograph, western cartoon, cgi, low resolution, blurry, black bars, letterboxing, cinema scope, cropped image, frame, borders.
+Keywords: 2D hand-painted background, cell shading, soft amber lighting, nostalgic atmosphere, highly detailed, 4k, emotional art, full screen image, edge to edge, filling the entire frame. 
+Negative prompt: 3D render, photorealistic, realistic, photograph, western cartoon, cgi, low resolution, blurry, black bars, letterboxing, cinema scope, cropped image, frame, borders, vignette, split screen.
 Character: An elderly Japanese woman (70s), kind face, wrinkles, gray hair tied back, wearing simple domestic clothes.`;
 
 const MAX_REFERENCE_IMAGES = 3;
@@ -93,6 +101,10 @@ const getTimestamp = () => {
   const m = String(now.getMinutes()).padStart(2, '0');
   const s = String(now.getSeconds()).padStart(2, '0');
   return `${yyyy}${mm}${dd}_${h}${m}${s}`;
+};
+
+const formatDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleString('vi-VN');
 };
 
 // --- UI ICONS ---
@@ -184,6 +196,18 @@ const SpeakerIcon: FC<{ className?: string }> = ({ className }) => (
 const MusicalNoteIcon: FC<{ className?: string }> = ({ className }) => (
     <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163Zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163Z" />
+    </svg>
+);
+
+const LibraryIcon: FC<{ className?: string }> = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0 0 12 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75Z" />
+    </svg>
+);
+
+const ClockIcon: FC<{ className?: string }> = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
     </svg>
 );
 
@@ -694,6 +718,80 @@ const ApiKeyModal: FC<ApiKeyModalProps> = ({
     );
 };
 
+interface LibraryModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    sessions: SavedSession[];
+    onDeleteSession: (id: string) => void;
+    onLoadSession: (session: SavedSession) => void;
+    onDownloadExcel: (session: SavedSession) => void;
+}
+const LibraryModal: FC<LibraryModalProps> = ({ isOpen, onClose, sessions, onDeleteSession, onLoadSession, onDownloadExcel }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-fade-in backdrop-blur-md">
+            <div className="bg-slate-900 border border-slate-700 rounded-3xl p-8 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto shadow-2xl relative">
+                <div className="flex justify-between items-center mb-8">
+                    <h2 className="text-3xl font-bold text-emerald-400 flex items-center gap-3">
+                        <LibraryIcon className="h-8 w-8" />
+                        Library History
+                    </h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors text-3xl font-light">&times;</button>
+                </div>
+
+                {sessions.length === 0 ? (
+                    <div className="text-center text-slate-500 py-12">
+                        <p className="text-lg">Chưa có phiên làm việc nào được lưu.</p>
+                        <p className="text-sm mt-2">Các session sẽ tự động được lưu sau khi tạo Storyboard thành công.</p>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        {sessions.map(session => (
+                            <div key={session.id} className="bg-slate-800 border border-slate-700 p-4 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-emerald-500/50 transition-all">
+                                <div className="flex-1">
+                                    <h3 className="font-bold text-lg text-white mb-1">{session.name}</h3>
+                                    <div className="flex items-center gap-4 text-xs text-slate-400">
+                                        <div className="flex items-center gap-1">
+                                            <ClockIcon className="h-3 w-3" />
+                                            {formatDate(session.timestamp)}
+                                        </div>
+                                        <span className="bg-slate-700 px-2 py-0.5 rounded-full">{session.prompts.length} scenes</span>
+                                        <span className="bg-slate-700 px-2 py-0.5 rounded-full uppercase">{session.mode === 'japan' ? 'JP' : 'PH'}</span>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => onLoadSession(session)}
+                                        className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2 px-3 rounded-lg transition-colors flex items-center gap-2"
+                                    >
+                                        <RefreshIcon className="h-3 w-3" /> Load
+                                    </button>
+                                    <button 
+                                        onClick={() => onDownloadExcel(session)}
+                                        className="bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold py-2 px-3 rounded-lg transition-colors flex items-center gap-2"
+                                    >
+                                        <DownloadIcon className="h-3 w-3" /> Excel
+                                    </button>
+                                    <button 
+                                        onClick={() => onDeleteSession(session.id)}
+                                        className="bg-red-900/50 hover:bg-red-800 text-red-200 text-xs font-bold py-2 px-3 rounded-lg transition-colors flex items-center gap-2 border border-red-800/50"
+                                    >
+                                        <TrashIcon className="h-3 w-3" />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                <div className="mt-6 text-center text-xs text-slate-500">
+                    * Lưu ý: Thư viện chỉ lưu nội dung văn bản (Script/Prompts). Hình ảnh và âm thanh cần được tạo lại để tiết kiệm bộ nhớ trình duyệt.
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export default function App() {
   const [mode, setMode] = useState<AppMode>('japan'); 
   const [scenario, setScenario] = useState("");
@@ -723,6 +821,10 @@ export default function App() {
   const [isStandardizing, setIsStandardizing] = useState(false);
   const [standardizedScript, setStandardizedScript] = useState<string | null>(null);
 
+  // Library State
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
+  const [savedSessions, setSavedSessions] = useState<SavedSession[]>([]);
+
   useEffect(() => {
     try {
         const savedKeys = localStorage.getItem('apiKeys');
@@ -731,6 +833,12 @@ export default function App() {
         if (savedModel) setSelectedModel(savedModel);
         const savedVoice = localStorage.getItem('selectedVoice');
         if (savedVoice) setSelectedVoice(savedVoice);
+        
+        // Load sessions
+        const savedSessionsData = localStorage.getItem('storyboardSessions');
+        if (savedSessionsData) {
+            setSavedSessions(JSON.parse(savedSessionsData));
+        }
     } catch (e) { console.error(e); }
   }, []); 
 
@@ -812,7 +920,7 @@ export default function App() {
     reader.readAsText(file);
   }, []);
 
-  const downloadPromptsAsXLSX = useCallback((promptsToDownload: ScenePrompt[]) => {
+  const downloadPromptsAsXLSX = useCallback((promptsToDownload: ScenePrompt[], filenameOverride?: string) => {
     if (!promptsToDownload.length) return;
     try {
       const timestamp = getTimestamp();
@@ -824,7 +932,8 @@ export default function App() {
       worksheet['!cols'] = [{ wch: 5 }, { wch: 15 }, { wch: 60 }, { wch: 80 }, { wch: 80 }];
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Prompts");
-      XLSX.writeFile(workbook, `storyboard_pro_${timestamp}.xlsx`);
+      const fname = filenameOverride ? `${filenameOverride}.xlsx` : `storyboard_pro_${timestamp}.xlsx`;
+      XLSX.writeFile(workbook, fname);
     } catch (err) {
       console.error("XLSX Export Error:", err);
       setError("Không thể xuất file XLSX.");
@@ -892,6 +1001,58 @@ export default function App() {
       document.body.removeChild(a);
   }, [standardizedScript, scriptFileName]);
 
+  const saveToLibrary = useCallback((scenes: ScenePrompt[], currentMode: AppMode, scriptName: string | null) => {
+    // Clean data: Remove potential blobs or heavy base64 strings if we ever attach them directly (better safe than sorry)
+    // Here we make a copy and ensure no generatedImageUrl/audioUrl is saved to keep LS small
+    const cleanPrompts = scenes.map(({generatedImageUrl, audioUrl, ...rest}) => rest);
+    
+    const newSession: SavedSession = {
+        id: crypto.randomUUID(),
+        timestamp: Date.now(),
+        name: scriptName || `Storyboard ${new Date().toLocaleString('vi-VN')}`,
+        mode: currentMode,
+        prompts: cleanPrompts as ScenePrompt[]
+    };
+    
+    const updatedSessions = [newSession, ...savedSessions];
+    setSavedSessions(updatedSessions);
+    try {
+        localStorage.setItem('storyboardSessions', JSON.stringify(updatedSessions));
+    } catch (e) {
+        console.error("LocalStorage Limit Reached", e);
+        // Fallback: don't crash, maybe alert user?
+    }
+  }, [savedSessions]);
+
+  const handleDeleteSession = (id: string) => {
+      const updated = savedSessions.filter(s => s.id !== id);
+      setSavedSessions(updated);
+      localStorage.setItem('storyboardSessions', JSON.stringify(updated));
+  };
+
+  const handleLoadSession = (session: SavedSession) => {
+      setMode(session.mode);
+      // Reset images/audio state because we don't save them
+      const loadedPrompts = session.prompts.map(p => ({
+          ...p,
+          generatedImageUrl: undefined,
+          audioUrl: undefined,
+          isLoading: false,
+          isAudioLoading: false
+      }));
+      setPrompts(loadedPrompts);
+      // Try to set a meaningful name context if possible
+      setScriptFileName(session.name); 
+      setScenario(""); // Clear manual input
+      setScriptFileContent(null);
+      setIsLibraryOpen(false);
+  };
+  
+  const handleDownloadExcelFromLibrary = (session: SavedSession) => {
+      const safeName = session.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      downloadPromptsAsXLSX(session.prompts, `${safeName}_${session.id.substring(0,4)}`);
+  };
+
   const handleBuildPrompts = useCallback(async () => {
     const activeGoogleKey = apiKeys.find(k => k.provider === 'Google' && k.isActive);
     if (!activeGoogleKey) {
@@ -936,12 +1097,16 @@ export default function App() {
       });
 
       setPrompts(scenes);
+      
+      // AUTO SAVE TO LIBRARY
+      saveToLibrary(scenes, mode, scriptFileName || "Manual Script");
+
     } catch (err) {
       setError(`Lỗi AI: ${err instanceof Error ? err.message : 'Lỗi không xác định'}`);
     } finally {
       setIsBuilding(false);
     }
-  }, [mode, referenceImages, scenario, scriptFileContent, scriptFileName, apiKeys, downloadPromptsAsXLSX]);
+  }, [mode, referenceImages, scenario, scriptFileContent, scriptFileName, apiKeys, downloadPromptsAsXLSX, saveToLibrary]);
 
   const handleGenerateImage = useCallback(async (sceneId: number) => {
     const promptToGenerate = prompts.find(p => p.id === sceneId);
@@ -1107,10 +1272,16 @@ export default function App() {
                 </div>
             </div>
         </a>
-        <button onClick={() => setIsModalOpen(true)} className="bg-slate-800/80 hover:bg-slate-700 text-white font-bold py-2.5 px-5 rounded-2xl transition-all flex items-center gap-2 shadow-xl border border-slate-700 hover:scale-105 active:scale-95">
-          <KeyIcon className="h-5 w-5 text-emerald-400" />
-          <span className="hidden md:inline">Settings</span>
-        </button>
+        <div className="flex gap-3">
+             <button onClick={() => setIsLibraryOpen(true)} className="bg-slate-800/80 hover:bg-slate-700 text-white font-bold py-2.5 px-5 rounded-2xl transition-all flex items-center gap-2 shadow-xl border border-slate-700 hover:scale-105 active:scale-95">
+                <LibraryIcon className="h-5 w-5 text-indigo-400" />
+                <span className="hidden md:inline">Library</span>
+            </button>
+            <button onClick={() => setIsModalOpen(true)} className="bg-slate-800/80 hover:bg-slate-700 text-white font-bold py-2.5 px-5 rounded-2xl transition-all flex items-center gap-2 shadow-xl border border-slate-700 hover:scale-105 active:scale-95">
+            <KeyIcon className="h-5 w-5 text-emerald-400" />
+            <span className="hidden md:inline">Settings</span>
+            </button>
+        </div>
       </header>
       
       {error && (
@@ -1172,6 +1343,15 @@ export default function App() {
         onSetActiveKey={handleSetActiveKey} 
         selectedModel={selectedModel} 
         onSelectModel={handleSelectModel}
+      />
+      
+      <LibraryModal 
+        isOpen={isLibraryOpen}
+        onClose={() => setIsLibraryOpen(false)}
+        sessions={savedSessions}
+        onDeleteSession={handleDeleteSession}
+        onLoadSession={handleLoadSession}
+        onDownloadExcel={handleDownloadExcelFromLibrary}
       />
     </div>
   );

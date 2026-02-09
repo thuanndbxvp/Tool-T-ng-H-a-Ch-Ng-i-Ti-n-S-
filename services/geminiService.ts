@@ -237,7 +237,8 @@ export const generateImageFromPrompt = async (prompt: string, referenceImages: I
     }));
 
     // Safety Patch: Force no black bars
-    const safePrompt = prompt + (forceAspectRatio169 ? ", full screen image, no black bars, no letterboxing" : "");
+    // Thêm các từ khóa mạnh hơn để ép full màn hình
+    const safePrompt = prompt + (forceAspectRatio169 ? ", --ar 16:9, full screen, no borders, no black bars, no letterbox, filling the entire frame" : "");
     const textPart = { text: safePrompt };
 
     const response = await ai.models.generateContent({
