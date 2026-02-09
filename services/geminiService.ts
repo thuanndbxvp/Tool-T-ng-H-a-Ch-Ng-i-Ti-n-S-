@@ -118,9 +118,8 @@ Your GOAL: Remove non-spoken formatting and metadata without changing a single s
 STRICT RULES:
 1. **NO REWRITING**: Do NOT change words, fix grammar, summarize, or alter the sentence structure. Keep the spoken content 100% original.
 2. **REMOVE NOISE**: 
-   - Remove Markdown (**bold**, *italics*, etc.).
    - Remove Stage Directions/Visual Cues (e.g., [Laughs], (Sighs), Scene 1, EXT. DAY).
-   - Remove excessive underscores (____) or separators (---).
+   - Remove Markdown (**bold**, *italics*, etc.) and excessive separators.
 3. **PRESERVE SRT STRUCTURE**:
    - If input is SRT, keep timestamps and sequence numbers exactly as is. Only clean the text part.
 4. **FORMATTING**:
@@ -247,7 +246,7 @@ export const generateImageFromPrompt = async (prompt: string, referenceImages: I
         parts: [...imageParts, textPart]
       },
       config: {
-        responseModalities: [Modality.IMAGE],
+        // responseModalities removed as it's not strictly required for image-only models and can conflict
         imageConfig: {
           aspectRatio: forceAspectRatio169 ? "16:9" : "1:1",
           imageSize: "1K"
@@ -266,10 +265,11 @@ export const generateImageFromPrompt = async (prompt: string, referenceImages: I
       }
     }
 
-    throw new Error(candidate.finishReason ? `AI từ chối tạo: ${candidate.finishReason}` : "Không có dữ liệu ảnh.");
+    throw new Error(candidate.finishReason ? `AI từ chối tạo: ${candidate.finishReason}` : "Không có dữ liệu ảnh trả về.");
 
   } catch (error) {
     console.error("Gemini Image Error:", error);
-    throw new Error(error instanceof Error ? error.message : "Lỗi tạo ảnh.");
+    // Propagate the original error message for better handling in App.tsx (e.g. 403 Permission Denied)
+    throw error;
   }
 };

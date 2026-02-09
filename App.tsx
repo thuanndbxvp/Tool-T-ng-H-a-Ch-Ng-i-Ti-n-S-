@@ -243,6 +243,12 @@ const ClockIcon: FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
+const BookOpenIcon: FC<{ className?: string }> = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+    </svg>
+);
+
 
 // --- CHILD COMPONENTS ---
 
@@ -896,6 +902,88 @@ const LibraryModal: FC<LibraryModalProps> = ({ isOpen, onClose, sessions, onDele
     );
 };
 
+const GuideModal: FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 animate-fade-in backdrop-blur-md">
+            <div className="bg-slate-900 border border-slate-700 rounded-3xl p-8 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto shadow-2xl relative">
+                <div className="flex justify-between items-center mb-8">
+                    <h2 className="text-3xl font-bold text-emerald-400 flex items-center gap-3">
+                        <BookOpenIcon className="h-8 w-8" />
+                        Hướng dẫn sử dụng
+                    </h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors text-3xl font-light">&times;</button>
+                </div>
+                
+                <div className="space-y-6">
+                    <div className="flex gap-4">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold border border-emerald-500/30">1</div>
+                        <div>
+                            <h3 className="font-bold text-lg text-white mb-1">Cấu hình API Key</h3>
+                            <p className="text-slate-400 text-sm leading-relaxed">
+                                Nhấn vào nút <strong>Settings</strong> ở góc phải. Nhập Google GenAI API Key của bạn (miễn phí hoặc trả phí). 
+                                Chọn Model "Gemini 3 Pro" để có chất lượng tốt nhất.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-4">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold border border-emerald-500/30">2</div>
+                        <div>
+                            <h3 className="font-bold text-lg text-white mb-1">Chọn Chế độ & Nhập liệu</h3>
+                            <p className="text-slate-400 text-sm leading-relaxed">
+                                Chọn chế độ (Kịch bản chung / Nhật Bản / Manga). 
+                                Upload file kịch bản (<code>.txt</code>, <code>.srt</code>) hoặc dán trực tiếp nội dung vào khung soạn thảo.
+                                Nếu chọn "Kịch bản chung", bạn có thể upload thêm ảnh tham chiếu.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-4">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold border border-emerald-500/30">3</div>
+                        <div>
+                            <h3 className="font-bold text-lg text-white mb-1">Phân tích & Tạo Storyboard</h3>
+                            <p className="text-slate-400 text-sm leading-relaxed">
+                                (Tùy chọn) Bấm <strong>Chuẩn hóa kịch bản</strong> để AI làm sạch văn bản cho việc đọc (TTS).
+                                Sau đó, bấm nút <strong>Generate Pro Storyboard</strong>. AI sẽ phân tích kịch bản thành các phân cảnh chi tiết.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-4">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold border border-emerald-500/30">4</div>
+                        <div>
+                            <h3 className="font-bold text-lg text-white mb-1">Tạo Media (Ảnh & Âm thanh)</h3>
+                            <p className="text-slate-400 text-sm leading-relaxed">
+                                Duyệt qua các phân cảnh đã tạo. Bấm nút <strong>Generate Image</strong> ở từng cảnh hoặc <strong>Gen All Img</strong> để tạo hàng loạt.
+                                Tương tự với âm thanh (TTS) ở chế độ Nhật/Manga.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-4">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold border border-emerald-500/30">5</div>
+                        <div>
+                            <h3 className="font-bold text-lg text-white mb-1">Xuất & Lưu trữ</h3>
+                            <p className="text-slate-400 text-sm leading-relaxed">
+                                Tải xuống toàn bộ assets bằng nút <strong>Excel</strong>, <strong>ZIP Img</strong>, hoặc <strong>ZIP Audio</strong>.
+                                Truy cập <strong>Library</strong> để xem lại lịch sử các kịch bản đã làm việc.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="mt-8 bg-slate-800 p-4 rounded-xl border border-slate-700">
+                    <p className="text-xs text-slate-400 text-center italic">
+                        * Mẹo: Sử dụng Model <strong>Gemini Flash</strong> trong Settings nếu bạn gặp lỗi hạn mức (429) hoặc muốn tốc độ nhanh hơn (chất lượng ảnh thấp hơn).
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export default function App() {
   const [mode, setMode] = useState<AppMode>('japan'); 
   const [scenario, setScenario] = useState("");
@@ -918,6 +1006,9 @@ export default function App() {
   const [isVoicePreviewing, setIsVoicePreviewing] = useState(false);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
+
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [selectedModel, setSelectedModel] = useState('gemini-3-pro-image-preview');
   // Set default voice to Zephyr as requested
@@ -928,7 +1019,6 @@ export default function App() {
   const [standardizedScript, setStandardizedScript] = useState<string | null>(null);
 
   // Library State
-  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [savedSessions, setSavedSessions] = useState<SavedSession[]>([]);
 
   useEffect(() => {
@@ -984,7 +1074,7 @@ export default function App() {
       // Smart Error Matching
       if (errorString.includes("403") || errorString.includes("PERMISSION_DENIED")) {
           title = "Lỗi Quyền Truy Cập (403)";
-          message = "Tài khoản Google AI của bạn chưa kích hoạt thanh toán (Billing) hoặc API Key không hợp lệ cho Model này. Vui lòng kiểm tra Google Cloud Console.";
+          message = "Tài khoản Google AI của bạn chưa kích hoạt thanh toán (Billing) hoặc API Key không hợp lệ cho Model này. Model Gemini Pro Image yêu cầu tài khoản tính phí. Hãy thử chuyển sang Gemini Flash Image trong Settings.";
       } else if (errorString.includes("429") || errorString.includes("RESOURCE_EXHAUSTED")) {
           title = "Vượt Quá Giới Hạn (429)";
           message = "Hệ thống đang quá tải hoặc bạn đã hết quota miễn phí. Vui lòng thử lại sau vài phút.";
@@ -1457,6 +1547,10 @@ export default function App() {
             </div>
         </a>
         <div className="flex gap-3">
+             <button onClick={() => setIsGuideOpen(true)} className="bg-slate-800/80 hover:bg-slate-700 text-white font-bold py-2.5 px-5 rounded-2xl transition-all flex items-center gap-2 shadow-xl border border-slate-700 hover:scale-105 active:scale-95">
+                <BookOpenIcon className="h-5 w-5 text-emerald-400" />
+                <span className="hidden md:inline">Guide</span>
+            </button>
              <button onClick={() => setIsLibraryOpen(true)} className="bg-slate-800/80 hover:bg-slate-700 text-white font-bold py-2.5 px-5 rounded-2xl transition-all flex items-center gap-2 shadow-xl border border-slate-700 hover:scale-105 active:scale-95">
                 <LibraryIcon className="h-5 w-5 text-indigo-400" />
                 <span className="hidden md:inline">Library</span>
@@ -1529,6 +1623,11 @@ export default function App() {
         onDeleteSession={handleDeleteSession}
         onLoadSession={handleLoadSession}
         onDownloadExcel={handleDownloadExcelFromLibrary}
+      />
+
+      <GuideModal 
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
       />
     </div>
   );
