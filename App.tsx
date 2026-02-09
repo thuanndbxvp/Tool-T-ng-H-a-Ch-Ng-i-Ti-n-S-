@@ -43,6 +43,15 @@ export interface SavedSession {
 // Thay đổi mode: Bỏ prehistoric, thêm general
 type AppMode = 'general' | 'japan' | 'manga';
 
+// Toast Types
+type ToastType = 'success' | 'error' | 'info';
+interface ToastMessage {
+    id: string;
+    type: ToastType;
+    title: string;
+    message: string;
+}
+
 // Style cho Kịch bản chung: Tự do, phụ thuộc vào ảnh tham chiếu
 const GENERAL_STYLE = `Style: High quality, Cinematic, Detailed.
 Keywords: 8k resolution, highly detailed, professional composition, atmospheric lighting, sharp focus.
@@ -64,8 +73,6 @@ Negative prompt: anime, cel shading, bright pop colors, chibi, moe, low quality,
 const MAX_REFERENCE_IMAGES = 5;
 
 // Các giọng đọc hỗ trợ bởi Gemini (gemini-2.5-flash-preview-tts)
-// Zephyr được đưa lên đầu làm mặc định
-// Cập nhật mô tả giọng để phù hợp với ngữ cảnh Nhật Bản (Anime/Phim)
 const AVAILABLE_VOICES = [
     { id: 'Zephyr', name: 'Zephyr (Nữ - Anime/Sôi nổi)', desc: 'Mặc định. Giọng nữ trong, năng động (Hợp Anime/Nữ chính)' },
     { id: 'Kore', name: 'Kore (Nữ - Trầm ấm/Bà lão)', desc: 'Giọng nữ trầm, thư giãn (Hợp ASMR/Bà lão/Kể chuyện)' },
@@ -169,6 +176,24 @@ const WarningIcon: FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
+const CheckCircleIcon: FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+  </svg>
+);
+
+const InformationCircleIcon: FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
+  </svg>
+);
+
+const XMarkIcon: FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+  </svg>
+);
+
 const SpinnerIcon: FC<{ className?: string }> = ({ className }) => (
     <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -190,7 +215,7 @@ const TrashIcon: FC<{ className?: string }> = ({ className }) => (
 
 const SparklesIcon: FC<{ className?: string }> = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423Z" />
   </svg>
 );
 
@@ -220,6 +245,45 @@ const ClockIcon: FC<{ className?: string }> = ({ className }) => (
 
 
 // --- CHILD COMPONENTS ---
+
+// TOAST COMPONENTS
+const ToastItem: FC<{ toast: ToastMessage; onClose: (id: string) => void }> = ({ toast, onClose }) => {
+    const bgClass = toast.type === 'success' ? 'bg-emerald-900/90 border-emerald-500' 
+                  : toast.type === 'error' ? 'bg-red-900/90 border-red-500' 
+                  : 'bg-indigo-900/90 border-indigo-500';
+    const iconColor = toast.type === 'success' ? 'text-emerald-400' 
+                    : toast.type === 'error' ? 'text-red-400' 
+                    : 'text-indigo-400';
+                    
+    return (
+        <div className={`${bgClass} border-l-4 p-4 rounded-r shadow-2xl mb-3 flex items-start gap-3 min-w-[320px] max-w-md animate-fade-in relative backdrop-blur-md transition-all duration-300 transform hover:translate-x-1`}>
+            <div className={`mt-0.5 ${iconColor}`}>
+                {toast.type === 'success' && <CheckCircleIcon className="h-6 w-6" />}
+                {toast.type === 'error' && <WarningIcon className="h-6 w-6" />} 
+                {toast.type === 'info' && <InformationCircleIcon className="h-6 w-6" />}
+            </div>
+            <div className="flex-1">
+                <h4 className={`text-sm font-bold ${iconColor} mb-1 uppercase tracking-wider`}>{toast.title}</h4>
+                <p className="text-xs text-slate-100 leading-relaxed font-medium">{toast.message}</p>
+            </div>
+            <button onClick={() => onClose(toast.id)} className="text-slate-400 hover:text-white transition-colors p-1 rounded-full hover:bg-white/10">
+                <XMarkIcon className="h-4 w-4" />
+            </button>
+        </div>
+    );
+};
+
+const ToastContainer: FC<{ toasts: ToastMessage[]; onClose: (id: string) => void }> = ({ toasts, onClose }) => {
+    return (
+        <div className="fixed top-20 right-4 z-50 flex flex-col items-end pointer-events-none">
+            <div className="pointer-events-auto">
+                {toasts.map(toast => (
+                    <ToastItem key={toast.id} toast={toast} onClose={onClose} />
+                ))}
+            </div>
+        </div>
+    );
+};
 
 interface ControlPanelProps {
   mode: AppMode;
@@ -840,7 +904,9 @@ export default function App() {
   const [referenceImages, setReferenceImages] = useState<ImageFile[]>([]);
   const [prompts, setPrompts] = useState<ScenePrompt[]>([]);
   const [isBuilding, setIsBuilding] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  
+  // REPLACE 'error' state with 'toasts' state
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
   
   // Image Generation State
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
@@ -882,6 +948,60 @@ export default function App() {
     } catch (e) { console.error(e); }
   }, []); 
 
+  // --- TOAST FUNCTIONS ---
+  const showToast = useCallback((type: ToastType, title: string, message: string) => {
+      const id = crypto.randomUUID();
+      setToasts(prev => [...prev, { id, type, title, message }]);
+      setTimeout(() => {
+          setToasts(prev => prev.filter(t => t.id !== id));
+      }, 5000); // Auto close after 5s
+  }, []);
+
+  const removeToast = useCallback((id: string) => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
+
+  // --- ERROR HANDLING HELPER ---
+  const handleApiError = useCallback((error: unknown, contextTitle: string) => {
+      let message = "Đã xảy ra lỗi không xác định.";
+      let detail = "";
+      
+      if (error instanceof Error) {
+          message = error.message;
+          detail = error.stack || "";
+      } else if (typeof error === 'string') {
+          message = error;
+      } else {
+          message = JSON.stringify(error);
+      }
+      
+      const errorString = (message + " " + detail).toUpperCase();
+
+      // Default Title
+      let title = contextTitle;
+      let type: ToastType = 'error';
+
+      // Smart Error Matching
+      if (errorString.includes("403") || errorString.includes("PERMISSION_DENIED")) {
+          title = "Lỗi Quyền Truy Cập (403)";
+          message = "Tài khoản Google AI của bạn chưa kích hoạt thanh toán (Billing) hoặc API Key không hợp lệ cho Model này. Vui lòng kiểm tra Google Cloud Console.";
+      } else if (errorString.includes("429") || errorString.includes("RESOURCE_EXHAUSTED")) {
+          title = "Vượt Quá Giới Hạn (429)";
+          message = "Hệ thống đang quá tải hoặc bạn đã hết quota miễn phí. Vui lòng thử lại sau vài phút.";
+      } else if (errorString.includes("500") || errorString.includes("INTERNAL")) {
+          title = "Lỗi Máy Chủ Google (500)";
+          message = "Dịch vụ Google AI đang gặp sự cố tạm thời. Hãy thử lại sau.";
+      } else if (errorString.includes("SAFETY")) {
+          title = "Bộ Lọc An Toàn";
+          message = "Nội dung bị chặn do vi phạm chính sách an toàn của Google. Hãy thử sửa lại prompt.";
+      } else if (errorString.includes("FETCH") || errorString.includes("NETWORK")) {
+          title = "Lỗi Kết Nối";
+          message = "Không thể kết nối đến máy chủ. Vui lòng kiểm tra internet.";
+      }
+
+      showToast(type, title, message);
+  }, [showToast]);
+
   const updateAndSaveKeys = (newKeys: ApiKey[]) => {
     setApiKeys(newKeys);
     localStorage.setItem('apiKeys', JSON.stringify(newKeys));
@@ -900,13 +1020,12 @@ export default function App() {
   const handlePreviewVoice = async (voiceId: string) => {
       const activeGoogleKey = apiKeys.find(k => k.provider === 'Google' && k.isActive);
       if (!activeGoogleKey) {
-          setError("Cần API Key Google để nghe thử.");
+          showToast('error', "Thiếu API Key", "Cần API Key Google để nghe thử.");
           setIsModalOpen(true);
           return;
       }
       
       setIsVoicePreviewing(true);
-      setError(null);
       
       // Mẫu câu test giọng đa ngôn ngữ
       const sampleText = `Hello, this is my voice. こんにちは、これは私の声です。(Xin chào, đây là giọng của tôi.)`;
@@ -915,8 +1034,9 @@ export default function App() {
           const audioUrl = await generateSpeechFromText(sampleText, activeGoogleKey.key, voiceId);
           const audio = new Audio(audioUrl);
           audio.play();
+          showToast('info', "Đang phát", "Đang phát mẫu giọng đọc...");
       } catch (err) {
-          setError(`Lỗi nghe thử: ${err instanceof Error ? err.message : 'Unknown'}`);
+          handleApiError(err, "Lỗi Nghe Thử");
       } finally {
           setIsVoicePreviewing(false);
       }
@@ -925,6 +1045,7 @@ export default function App() {
   const handleAddKey = (provider: ApiKey['provider'], name: string, key: string) => {
     const newKey: ApiKey = { id: crypto.randomUUID(), provider, name, key, isActive: apiKeys.filter(k => k.provider === provider).length === 0 };
     updateAndSaveKeys([...apiKeys, newKey]);
+    showToast('success', "Thành công", `Đã thêm API Key cho ${provider}.`);
   };
 
   const handleDeleteKey = (id: string) => updateAndSaveKeys(apiKeys.filter(k => k.id !== id));
@@ -933,6 +1054,7 @@ export default function App() {
     const keyToActivate = apiKeys.find(k => k.id === id);
     if (!keyToActivate) return;
     updateAndSaveKeys(apiKeys.map(k => k.provider === keyToActivate.provider ? { ...k, isActive: k.id === id } : k));
+    showToast('success', "Đã kích hoạt", `Key ${keyToActivate.name} đang được sử dụng.`);
   };
 
   const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -944,8 +1066,9 @@ export default function App() {
               return { name: file.name, dataUrl, base64: dataUrlToBase64(dataUrl), mimeType };
           });
           setReferenceImages(await Promise.all(imagePromises));
-      } catch (err) { setError('Lỗi khi đọc file ảnh.'); }
-  }, []);
+          showToast('success', "Tải ảnh thành công", `Đã tải ${files.length} ảnh tham chiếu.`);
+      } catch (err) { handleApiError(err, "Lỗi Tải Ảnh"); }
+  }, [handleApiError, showToast]);
 
   const handleScriptUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -956,9 +1079,10 @@ export default function App() {
         setScriptFileContent(ev.target?.result as string);
         setScenario("");
         setStandardizedScript(null); // Reset standardized script on new upload
+        showToast('success', "Đọc File Thành Công", `Đã tải nội dung từ ${file.name}`);
     };
     reader.readAsText(file);
-  }, []);
+  }, [showToast]);
 
   const downloadPromptsAsXLSX = useCallback((promptsToDownload: ScenePrompt[], filenameOverride?: string) => {
     if (!promptsToDownload.length) return;
@@ -974,11 +1098,12 @@ export default function App() {
       XLSX.utils.book_append_sheet(workbook, worksheet, "Prompts");
       const fname = filenameOverride ? `${filenameOverride}.xlsx` : `storyboard_pro_${timestamp}.xlsx`;
       XLSX.writeFile(workbook, fname);
+      showToast('success', "Xuất Excel", "Đã tải xuống file Excel thành công.");
     } catch (err) {
       console.error("XLSX Export Error:", err);
-      setError("Không thể xuất file XLSX.");
+      handleApiError(err, "Lỗi Xuất Excel");
     }
-  }, []);
+  }, [handleApiError, showToast]);
 
   const handleDownloadPromptsAsTxt = useCallback(() => {
     if (prompts.length === 0) return;
@@ -996,37 +1121,38 @@ export default function App() {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        showToast('success', "Xuất TXT", "Đã tải xuống file TXT thành công.");
     } catch (err) {
         console.error("TXT Export Error:", err);
-        setError("Không thể xuất file TXT.");
+        handleApiError(err, "Lỗi Xuất TXT");
     }
-  }, [prompts]);
+  }, [prompts, handleApiError, showToast]);
 
   const handleStandardizeScript = useCallback(async () => {
     const activeGoogleKey = apiKeys.find(k => k.provider === 'Google' && k.isActive);
     if (!activeGoogleKey) {
-        setError("Cần API Key Google để chuẩn hóa kịch bản.");
+        showToast('error', "Thiếu API Key", "Cần API Key Google để chuẩn hóa kịch bản.");
         setIsModalOpen(true);
         return;
     }
 
     let inputScript = scriptFileContent || scenario;
     if (!inputScript.trim()) {
-        setError("Vui lòng nhập hoặc tải kịch bản.");
+        showToast('error', "Thiếu nội dung", "Vui lòng nhập hoặc tải kịch bản.");
         return;
     }
 
     setIsStandardizing(true);
-    setError(null);
     try {
         const cleaned = await standardizeScriptWithAI(inputScript, activeGoogleKey.key);
         setStandardizedScript(cleaned);
+        showToast('success', "Chuẩn hóa xong", "Kịch bản đã được làm sạch và sẵn sàng cho TTS.");
     } catch (err) {
-        setError(`Lỗi chuẩn hóa: ${err instanceof Error ? err.message : 'Unknown'}`);
+        handleApiError(err, "Lỗi Chuẩn Hóa");
     } finally {
         setIsStandardizing(false);
     }
-  }, [scriptFileContent, scenario, apiKeys]);
+  }, [scriptFileContent, scenario, apiKeys, handleApiError, showToast]);
 
   const handleDownloadStandardizedScript = useCallback(() => {
       if (!standardizedScript) return;
@@ -1060,14 +1186,15 @@ export default function App() {
         localStorage.setItem('storyboardSessions', JSON.stringify(updatedSessions));
     } catch (e) {
         console.error("LocalStorage Limit Reached", e);
-        // Fallback: don't crash, maybe alert user?
+        showToast('error', "Bộ nhớ đầy", "Không thể lưu vào lịch sử do bộ nhớ trình duyệt đã đầy.");
     }
-  }, [savedSessions]);
+  }, [savedSessions, showToast]);
 
   const handleDeleteSession = (id: string) => {
       const updated = savedSessions.filter(s => s.id !== id);
       setSavedSessions(updated);
       localStorage.setItem('storyboardSessions', JSON.stringify(updated));
+      showToast('info', "Đã xóa", "Đã xóa session khỏi lịch sử.");
   };
 
   const handleLoadSession = (session: SavedSession) => {
@@ -1086,6 +1213,7 @@ export default function App() {
       setScenario(""); // Clear manual input
       setScriptFileContent(null);
       setIsLibraryOpen(false);
+      showToast('success', "Đã tải lại", `Đã tải lại phiên làm việc "${session.name}"`);
   };
   
   const handleDownloadExcelFromLibrary = (session: SavedSession) => {
@@ -1096,13 +1224,12 @@ export default function App() {
   const handleBuildPrompts = useCallback(async () => {
     const activeGoogleKey = apiKeys.find(k => k.provider === 'Google' && k.isActive);
     if (!activeGoogleKey) {
-        setError("Cần API Key Google để AI phân tích kịch bản.");
+        showToast('error', "Thiếu API Key", "Cần API Key Google để AI phân tích kịch bản.");
         setIsModalOpen(true);
         return;
     }
 
     setIsBuilding(true);
-    setError(null);
 
     try {
       let fullScript = "";
@@ -1136,23 +1263,24 @@ export default function App() {
       });
 
       setPrompts(scenes);
+      showToast('success', "Phân tích xong", `Đã tạo ${scenes.length} phân cảnh thành công.`);
       
       // AUTO SAVE TO LIBRARY
       saveToLibrary(scenes, mode, scriptFileName || "Manual Script");
 
     } catch (err) {
-      setError(`Lỗi AI: ${err instanceof Error ? err.message : 'Lỗi không xác định'}`);
+      handleApiError(err, "Lỗi Phân Tích AI");
     } finally {
       setIsBuilding(false);
     }
-  }, [mode, scenario, scriptFileContent, scriptFileName, apiKeys, downloadPromptsAsXLSX, saveToLibrary]);
+  }, [mode, scenario, scriptFileContent, scriptFileName, apiKeys, downloadPromptsAsXLSX, saveToLibrary, handleApiError, showToast]);
 
   const handleGenerateImage = useCallback(async (sceneId: number) => {
     const promptToGenerate = prompts.find(p => p.id === sceneId);
     if (!promptToGenerate) return;
     const activeGoogleKey = apiKeys.find(k => k.provider === 'Google' && k.isActive);
     if (!activeGoogleKey) {
-        setError("Cần API Key Google.");
+        showToast('error', "Thiếu API Key", "Cần API Key Google.");
         setIsModalOpen(true);
         return;
     }
@@ -1163,10 +1291,10 @@ export default function App() {
         const imageUrl = await generateImageFromPrompt(promptToGenerate.imagePrompt, refImages, activeGoogleKey.key, selectedModel, true);
         setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, generatedImageUrl: imageUrl, isLoading: false } : p));
     } catch (err) {
-        setError(`Lỗi tạo ảnh Scene ${sceneId}: ${err instanceof Error ? err.message : 'Unknown'}`);
+        handleApiError(err, `Lỗi tạo ảnh Scene ${sceneId}`);
         setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, isLoading: false } : p));
     }
-  }, [prompts, referenceImages, apiKeys, selectedModel, mode]);
+  }, [prompts, referenceImages, apiKeys, selectedModel, mode, handleApiError, showToast]);
 
   const handleGenerateAudio = useCallback(async (sceneId: number) => {
       // Audio generation disabled for general mode
@@ -1176,7 +1304,7 @@ export default function App() {
       if (!promptToGenerate) return;
       const activeGoogleKey = apiKeys.find(k => k.provider === 'Google' && k.isActive);
       if (!activeGoogleKey) {
-          setError("Cần API Key Google.");
+          showToast('error', "Thiếu API Key", "Cần API Key Google.");
           setIsModalOpen(true);
           return;
       }
@@ -1187,20 +1315,21 @@ export default function App() {
           const audioUrl = await generateSpeechFromText(promptToGenerate.scriptLine, activeGoogleKey.key, selectedVoice);
           setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, audioUrl: audioUrl, isAudioLoading: false } : p));
       } catch (err) {
-          setError(`Lỗi tạo giọng đọc Scene ${sceneId}: ${err instanceof Error ? err.message : 'Unknown'}`);
+          handleApiError(err, `Lỗi tạo giọng đọc Scene ${sceneId}`);
           setPrompts(prev => prev.map(p => p.id === sceneId ? { ...p, isAudioLoading: false } : p));
       }
-  }, [prompts, apiKeys, selectedVoice, mode]);
+  }, [prompts, apiKeys, selectedVoice, mode, handleApiError, showToast]);
 
   const handleGenerateAllImages = useCallback(async () => {
       const activeGoogleKey = apiKeys.find(k => k.provider === 'Google' && k.isActive);
       if (!activeGoogleKey) {
-          setError("Cần API Key Google.");
+          showToast('error', "Thiếu API Key", "Cần API Key Google.");
           setIsModalOpen(true);
           return;
       }
       
       setIsGeneratingAll(true);
+      showToast('info', "Bắt đầu", "Đang lần lượt tạo ảnh cho các phân cảnh thiếu...");
       const pendingItems = prompts.filter(p => !p.generatedImageUrl);
       
       for (const item of pendingItems) {
@@ -1210,7 +1339,8 @@ export default function App() {
          } catch (e) { console.error(e); }
       }
       setIsGeneratingAll(false);
-  }, [apiKeys, prompts, handleGenerateImage]);
+      showToast('success', "Hoàn tất", "Đã xử lý xong hàng đợi tạo ảnh.");
+  }, [apiKeys, prompts, handleGenerateImage, showToast]);
 
   const handleGenerateAllAudio = useCallback(async () => {
       // Audio generation disabled for general mode
@@ -1218,12 +1348,13 @@ export default function App() {
 
       const activeGoogleKey = apiKeys.find(k => k.provider === 'Google' && k.isActive);
       if (!activeGoogleKey) {
-          setError("Cần API Key Google.");
+          showToast('error', "Thiếu API Key", "Cần API Key Google.");
           setIsModalOpen(true);
           return;
       }
 
       setIsGeneratingAllAudio(true);
+      showToast('info', "Bắt đầu", "Đang lần lượt tạo giọng đọc...");
       const pendingItems = prompts.filter(p => !p.audioUrl);
 
       for (const item of pendingItems) {
@@ -1233,12 +1364,13 @@ export default function App() {
           } catch (e) { console.error(e); }
       }
       setIsGeneratingAllAudio(false);
-  }, [apiKeys, prompts, handleGenerateAudio, mode]);
+      showToast('success', "Hoàn tất", "Đã xử lý xong hàng đợi giọng đọc.");
+  }, [apiKeys, prompts, handleGenerateAudio, mode, showToast]);
 
   const handleDownloadAllImages = useCallback(async () => {
       const imagesToZip = prompts.filter(p => p.generatedImageUrl);
       if (imagesToZip.length === 0) {
-          setError("Chưa có ảnh nào được tạo.");
+          showToast('error', "Trống", "Chưa có ảnh nào được tạo.");
           return;
       }
       
@@ -1260,15 +1392,16 @@ export default function App() {
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
+          showToast('success', "Đã tải", "File ZIP ảnh đang được tải xuống.");
       } catch (err) {
-          setError("Không thể nén và tải ảnh.");
+          handleApiError(err, "Lỗi Nén ZIP");
       }
-  }, [prompts]);
+  }, [prompts, handleApiError, showToast]);
 
   const handleDownloadAllAudio = useCallback(async () => {
       const audioToZip = prompts.filter(p => p.audioUrl);
       if (audioToZip.length === 0) {
-          setError("Chưa có giọng đọc nào được tạo.");
+          showToast('error', "Trống", "Chưa có giọng đọc nào được tạo.");
           return;
       }
 
@@ -1293,13 +1426,17 @@ export default function App() {
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
+          showToast('success', "Đã tải", "File ZIP âm thanh đang được tải xuống.");
       } catch (err) {
-           setError("Không thể nén và tải âm thanh.");
+           handleApiError(err, "Lỗi Nén ZIP");
       }
-  }, [prompts]);
+  }, [prompts, handleApiError, showToast]);
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 p-4 md:p-6 transition-all duration-300">
+      {/* Toast Container */}
+      <ToastContainer toasts={toasts} onClose={removeToast} />
+      
       <header className="flex justify-between items-center mb-10 border-b border-slate-800 pb-6 max-w-7xl mx-auto backdrop-blur-sm sticky top-0 z-40 bg-slate-900/80">
         <a 
             href="/"
@@ -1331,15 +1468,7 @@ export default function App() {
         </div>
       </header>
       
-      {error && (
-        <div className="max-w-7xl mx-auto bg-red-900/30 border border-red-700/50 text-red-200 px-8 py-5 rounded-3xl mb-10 flex justify-between items-center animate-fade-in shadow-2xl backdrop-blur-md" role="alert">
-            <div className="flex items-center gap-4">
-                <div className="bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-black shadow-lg">!</div>
-                <span className="text-sm font-medium leading-relaxed">{error}</span>
-            </div>
-            <button onClick={() => setError(null)} className="text-3xl leading-none hover:text-white transition-colors p-2">&times;</button>
-        </div>
-      )}
+      {/* Old Error Alert removed, replaced by Toast */}
 
       <main className="max-w-7xl mx-auto grid lg:grid-cols-12 gap-10 items-start">
         <div className="lg:col-span-4 xl:col-span-3">
