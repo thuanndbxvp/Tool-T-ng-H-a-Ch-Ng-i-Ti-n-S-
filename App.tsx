@@ -246,7 +246,7 @@ const WelcomeGuide: FC = () => (
                 <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">1</div>
                 <h3 className="font-bold text-slate-200 mb-2">Cấu hình API Key</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                    API Key được cấu hình qua biến môi trường (process.env.API_KEY). Hệ thống sử dụng model <strong>Gemini 3 Pro</strong>.
+                    Nhập API Key ở cột bên trái. Nếu để trống, hệ thống sẽ thử dùng API Key từ biến môi trường (process.env).
                 </p>
             </div>
 
@@ -326,12 +326,14 @@ interface ControlPanelProps {
   onDownloadStandardized: () => void;
   segmentationMode: 'ai' | 'punctuation';
   setSegmentationMode: (mode: 'ai' | 'punctuation') => void;
+  apiKey: string;
+  setApiKey: (key: string) => void;
 }
 const ControlPanel: FC<ControlPanelProps> = ({ 
     mode, setMode, scenario, setScenario, referenceImages, 
     onImageUpload, onScriptUpload, onBuildPrompts, isBuilding, 
     scriptFileName, onStandardizeScript, isStandardizing, standardizedScript, onDownloadStandardized,
-    segmentationMode, setSegmentationMode
+    segmentationMode, setSegmentationMode, apiKey, setApiKey
 }) => {
   const charImgRef = useRef<HTMLInputElement>(null);
   const scriptFileRef = useRef<HTMLInputElement>(null);
@@ -348,6 +350,24 @@ const ControlPanel: FC<ControlPanelProps> = ({
       <h2 className="text-xl font-bold text-emerald-400 mb-6">1. Setup</h2>
       
       <div className="flex flex-col gap-6">
+          {/* API Key Section */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">🔑 Google GenAI API Key</label>
+            <div className="relative">
+                <input
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="Paste your Gemini API Key here..."
+                    className="w-full bg-slate-800 border border-slate-700 p-3 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-inner text-white text-sm pr-10"
+                />
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                     {apiKey ? <CheckCircleIcon className="h-4 w-4 text-emerald-500" /> : <KeyIcon className="h-4 w-4 text-slate-500" />}
+                </div>
+            </div>
+            <p className="text-[10px] text-slate-500 mt-1 italic">Leave empty to use default system key (if configured).</p>
+          </div>
+
           {/* COLUMN 1: Inputs */}
           <div className="flex flex-col gap-6">
             {/* Reference Images */}
@@ -480,6 +500,7 @@ const App: FC = () => {
   const [isStandardizing, setIsStandardizing] = useState<boolean>(false);
   const [standardizedScript, setStandardizedScript] = useState<string | null>(null);
   const [segmentationMode, setSegmentationMode] = useState<'ai' | 'punctuation'>('ai');
+  const [apiKey, setApiKey] = useState<string>('');
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   // Toast Helper
@@ -538,13 +559,14 @@ const App: FC = () => {
       if (!scenario) return;
       setIsStandardizing(true);
       try {
-          const apiKey = process.env.API_KEY || "";
-          if (!apiKey) {
-             addToast('error', 'Missing API Key', 'API Key not found in environment.');
+          // Priority: User Input > Env Var
+          const effectiveKey = apiKey || process.env.API_KEY || "";
+          if (!effectiveKey) {
+             addToast('error', 'Missing API Key', 'Please enter a Google GenAI API Key.');
              setIsStandardizing(false);
              return;
           }
-          const result = await standardizeScriptWithAI(scenario, apiKey);
+          const result = await standardizeScriptWithAI(scenario, effectiveKey);
           setStandardizedScript(result);
           addToast('success', 'Success', 'Script standardized successfully.');
       } catch (error: any) {
@@ -569,9 +591,10 @@ const App: FC = () => {
       if (!scenario) return;
       setIsBuilding(true);
       try {
-           const apiKey = process.env.API_KEY || "";
-           if (!apiKey) {
-             addToast('error', 'Missing API Key', 'API Key not found in environment.');
+           // Priority: User Input > Env Var
+           const effectiveKey = apiKey || process.env.API_KEY || "";
+           if (!effectiveKey) {
+             addToast('error', 'Missing API Key', 'Please enter a Google GenAI API Key.');
              setIsBuilding(false);
              return;
           }
@@ -581,7 +604,7 @@ const App: FC = () => {
           const results = await analyzeScriptWithAI(
               scenario,
               refImagesForService,
-              apiKey,
+              effectiveKey,
               GENERAL_STYLE,
               mode,
               segmentationMode
@@ -659,6 +682,8 @@ const App: FC = () => {
                         onDownloadStandardized={handleDownloadStandardized}
                         segmentationMode={segmentationMode}
                         setSegmentationMode={setSegmentationMode}
+                        apiKey={apiKey}
+                        setApiKey={setApiKey}
                     />
                 </div>
 
