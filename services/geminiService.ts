@@ -1,7 +1,7 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
-export const standardizeScriptWithAI = async (script: string, apiKey: string): Promise<string> => {
+export const standardizeScriptWithAI = async (script: string, apiKey: string, modelName: string = "gemini-3-flash-preview"): Promise<string> => {
   if (!apiKey) throw new Error("Vui lòng cấu hình API Key Google.");
 
   const ai = new GoogleGenAI({ apiKey });
@@ -25,7 +25,7 @@ Output ONLY the cleaned text.`;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
+      model: modelName, // Use selected model
       contents: script,
       config: {
         systemInstruction,
@@ -49,7 +49,8 @@ export const analyzeScriptWithAI = async (
     apiKey: string, 
     styleLock: string, 
     mode: string,
-    segmentationMode: 'ai' | 'punctuation'
+    segmentationMode: 'ai' | 'punctuation',
+    modelName: string = "gemini-3-pro-preview"
 ): Promise<any[]> => {
   if (!apiKey) throw new Error("Vui lòng cấu hình API Key Google.");
   
@@ -84,7 +85,7 @@ Story Tone: Nostalgic, gentle, slightly melancholic ("u buồn"), deeply emotion
   - **Husband/Partner**: If present, MUST be an elderly man (~75 years old, gray hair, wrinkles) to match the wife. NEVER depict a young husband unless explicitly stated as a "Flashback".
   - **Children**: Middle-aged (40s-50s).
   - **Grandchildren**: Children (5s-10s).
-- **Environment**: Maintain a consistent setting (e.g., old traditional house, tatami mats) unless the scene changes.
+  - **Environment**: Maintain a consistent setting (e.g., old traditional house, tatami mats) unless the scene changes.
 
 ${segmentationInstruction}
 
@@ -126,7 +127,7 @@ OUTPUT ONLY A JSON ARRAY.`;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
+      model: modelName, // Use selected model
       contents: { parts }, // Send both images and text
       config: {
         systemInstruction,
@@ -153,6 +154,6 @@ OUTPUT ONLY A JSON ARRAY.`;
     return JSON.parse(text.trim());
   } catch (error) {
     console.error("AI Analysis Error:", error);
-    throw new Error("Không thể phân tích kịch bản với Gemini 3 Pro. Vui lòng kiểm tra API Key.");
+    throw new Error(`Không thể phân tích kịch bản với ${modelName}. Vui lòng kiểm tra API Key.`);
   }
 };

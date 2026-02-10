@@ -29,14 +29,19 @@ export interface ApiKey {
 
 export interface SavedSession {
     id: string;
-    name: string;
+    name: string; // Script filename or custom name
     timestamp: number;
-    mode: AppMode;
     prompts: ScenePrompt[];
 }
 
 // Thay đổi mode: Chỉ còn general
 type AppMode = 'general';
+
+// Models
+const MODELS = [
+    { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro (Complex Reasoning)', recommended: true },
+    { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash (Fast & Cheap)', recommended: false },
+];
 
 // Toast Types
 type ToastType = 'success' | 'error' | 'info';
@@ -70,17 +75,6 @@ const dataUrlToBase64 = (dataUrl: string): string => {
   return dataUrl.split(',')[1];
 };
 
-const parseSrt = (content: string): string => {
-  const lines = content.replace(/\r/g, '').split('\n');
-  let dialogue = "";
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line || /^\d+$/.test(line) || line.includes('-->')) continue;
-    dialogue += " " + line;
-  }
-  return dialogue.trim();
-};
-
 const getTimestamp = () => {
   const now = new Date();
   const yyyy = now.getFullYear();
@@ -96,6 +90,27 @@ const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleString('vi-VN');
 };
 
+const exportToExcel = (prompts: ScenePrompt[], filenamePrefix: string = 'storyboard') => {
+      if (prompts.length === 0) return;
+      
+      const wsData = prompts.map(p => ({
+          'Scene': p.id,
+          'Phase': p.phase,
+          'Script Line': p.scriptLine,
+          'Image Prompt': p.imagePrompt,
+          'Video Prompt': p.videoPrompt
+      }));
+      
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(wsData);
+      
+      const wscols = Object.keys(wsData[0]).map(k => ({ wch: 20 }));
+      ws['!cols'] = wscols;
+      
+      XLSX.utils.book_append_sheet(wb, ws, "Storyboard");
+      XLSX.writeFile(wb, `${filenamePrefix}_${getTimestamp()}.xlsx`);
+};
+
 // --- UI ICONS ---
 const UploadIcon: FC<{ className?: string }> = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -109,27 +124,9 @@ const DocumentIcon: FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
-const TextDocumentIcon: FC<{ className?: string }> = ({ className }) => (
-    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0h5.625M12 10.5h.008v.008H12V10.5Zm0 4.5h.008v.008H12V15Zm0 4.5h.008v.008H12v-.008ZM9.75 6.75h.75a.75.75 0 0 1 .75.75v11.25a.75.75 0 0 1-.75.75h-.75a.75.75 0 0 1-.75-.75V7.5a.75.75 0 0 1 .75-.75Zm0 0h12.375m-9.375 12h8.625" />
-    </svg>
-);
-
-const CopyIcon: FC<{ className?: string }> = ({ className }) => (
-    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" />
-    </svg>
-);
-
 const DownloadIcon: FC<{ className?: string }> = ({ className }) => (
     <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-    </svg>
-);
-
-const RefreshIcon: FC<{ className?: string }> = ({ className }) => (
-    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
     </svg>
 );
 
@@ -176,6 +173,12 @@ const TrashIcon: FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
+const ClockIcon: FC<{ className?: string }> = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+    </svg>
+);
+
 const SparklesIcon: FC<{ className?: string }> = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423Z" />
@@ -185,12 +188,6 @@ const SparklesIcon: FC<{ className?: string }> = ({ className }) => (
 const LibraryIcon: FC<{ className?: string }> = ({ className }) => (
     <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0 0 12 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75Z" />
-    </svg>
-);
-
-const ClockIcon: FC<{ className?: string }> = ({ className }) => (
-    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
     </svg>
 );
 
@@ -246,7 +243,7 @@ const WelcomeGuide: FC = () => (
                 <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">1</div>
                 <h3 className="font-bold text-slate-200 mb-2">Cấu hình API Key</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                    Nhập API Key ở cột bên trái. Nếu để trống, hệ thống sẽ thử dùng API Key từ biến môi trường (process.env).
+                   Bấm nút <strong>API</strong> góc trên bên phải để nhập Key. Lấy API Key miễn phí tại: <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline font-bold">Google AI Studio</a>.
                 </p>
             </div>
 
@@ -309,6 +306,131 @@ const WelcomeGuide: FC = () => (
     </div>
 );
 
+// --- MODALS ---
+const ApiSettingsModal: FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    apiKey: string;
+    setApiKey: (key: string) => void;
+    selectedModel: string;
+    setSelectedModel: (model: string) => void;
+}> = ({ isOpen, onClose, apiKey, setApiKey, selectedModel, setSelectedModel }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6 shadow-2xl relative">
+                <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white">
+                    <XMarkIcon className="h-6 w-6" />
+                </button>
+                <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                    <KeyIcon className="h-6 w-6 text-emerald-400" />
+                    API & Model Settings
+                </h3>
+                
+                <div className="space-y-6">
+                     <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">Gemini API Key</label>
+                        <input
+                            type="password"
+                            value={apiKey}
+                            onChange={(e) => setApiKey(e.target.value)}
+                            placeholder="Enter your API Key"
+                            className="w-full bg-slate-800 border border-slate-700 p-3 rounded-md focus:ring-2 focus:ring-emerald-500 text-white text-sm"
+                        />
+                        <p className="text-xs text-slate-500 mt-2">
+                            Get your free key at <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">Google AI Studio</a>.
+                        </p>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">Select Model</label>
+                        <div className="space-y-2">
+                            {MODELS.map(model => (
+                                <button
+                                    key={model.id}
+                                    onClick={() => setSelectedModel(model.id)}
+                                    className={`w-full p-3 rounded-lg border text-left transition-all ${selectedModel === model.id ? 'bg-emerald-900/30 border-emerald-500 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600'}`}
+                                >
+                                    <div className="font-bold text-sm">{model.name}</div>
+                                    {model.recommended && <div className="text-[10px] uppercase tracking-wider font-bold text-emerald-500 mt-1">Recommended</div>}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="mt-8 flex justify-end">
+                    <button onClick={onClose} className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-lg font-bold text-sm transition-colors">
+                        Done
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const LibraryModal: FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    sessions: SavedSession[];
+    onDelete: (id: string) => void;
+    onDownload: (session: SavedSession) => void;
+}> = ({ isOpen, onClose, sessions, onDelete, onDownload }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl p-6 shadow-2xl relative max-h-[80vh] flex flex-col">
+                <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white">
+                    <XMarkIcon className="h-6 w-6" />
+                </button>
+                <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                    <LibraryIcon className="h-6 w-6 text-emerald-400" />
+                    Session Library
+                </h3>
+                <p className="text-slate-400 text-sm mb-6">Saved sessions are stored locally in your browser.</p>
+
+                <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
+                    {sessions.length === 0 ? (
+                        <div className="text-center py-12 text-slate-500 border-2 border-dashed border-slate-800 rounded-xl">
+                            <p>No saved sessions found.</p>
+                        </div>
+                    ) : (
+                        sessions.slice().reverse().map(session => (
+                            <div key={session.id} className="bg-slate-800/50 border border-slate-700 p-4 rounded-xl flex items-center justify-between group hover:border-slate-600 transition-colors">
+                                <div>
+                                    <h4 className="font-bold text-slate-200 text-sm mb-1">{session.name || 'Untitled Session'}</h4>
+                                    <div className="flex items-center gap-4 text-xs text-slate-500">
+                                        <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3" /> {formatDate(session.timestamp)}</span>
+                                        <span className="bg-slate-800 px-2 py-0.5 rounded text-emerald-400 font-mono">{session.prompts.length} scenes</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                     <button 
+                                        onClick={() => onDownload(session)}
+                                        className="p-2 text-slate-400 hover:text-emerald-400 hover:bg-emerald-900/20 rounded-lg transition-colors"
+                                        title="Download Excel"
+                                     >
+                                        <DownloadIcon className="h-5 w-5" />
+                                    </button>
+                                    <button 
+                                        onClick={() => onDelete(session.id)}
+                                        className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors"
+                                        title="Delete"
+                                    >
+                                        <TrashIcon className="h-5 w-5" />
+                                    </button>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 interface ControlPanelProps {
   mode: AppMode;
   setMode: (mode: AppMode) => void;
@@ -326,14 +448,12 @@ interface ControlPanelProps {
   onDownloadStandardized: () => void;
   segmentationMode: 'ai' | 'punctuation';
   setSegmentationMode: (mode: 'ai' | 'punctuation') => void;
-  apiKey: string;
-  setApiKey: (key: string) => void;
 }
 const ControlPanel: FC<ControlPanelProps> = ({ 
     mode, setMode, scenario, setScenario, referenceImages, 
     onImageUpload, onScriptUpload, onBuildPrompts, isBuilding, 
     scriptFileName, onStandardizeScript, isStandardizing, standardizedScript, onDownloadStandardized,
-    segmentationMode, setSegmentationMode, apiKey, setApiKey
+    segmentationMode, setSegmentationMode
 }) => {
   const charImgRef = useRef<HTMLInputElement>(null);
   const scriptFileRef = useRef<HTMLInputElement>(null);
@@ -350,24 +470,6 @@ const ControlPanel: FC<ControlPanelProps> = ({
       <h2 className="text-xl font-bold text-emerald-400 mb-6">1. Setup</h2>
       
       <div className="flex flex-col gap-6">
-          {/* API Key Section */}
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">🔑 Google GenAI API Key</label>
-            <div className="relative">
-                <input
-                    type="password"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="Paste your Gemini API Key here..."
-                    className="w-full bg-slate-800 border border-slate-700 p-3 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-inner text-white text-sm pr-10"
-                />
-                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                     {apiKey ? <CheckCircleIcon className="h-4 w-4 text-emerald-500" /> : <KeyIcon className="h-4 w-4 text-slate-500" />}
-                </div>
-            </div>
-            <p className="text-[10px] text-slate-500 mt-1 italic">Leave empty to use default system key (if configured).</p>
-          </div>
-
           {/* COLUMN 1: Inputs */}
           <div className="flex flex-col gap-6">
             {/* Reference Images */}
@@ -500,8 +602,63 @@ const App: FC = () => {
   const [isStandardizing, setIsStandardizing] = useState<boolean>(false);
   const [standardizedScript, setStandardizedScript] = useState<string | null>(null);
   const [segmentationMode, setSegmentationMode] = useState<'ai' | 'punctuation'>('ai');
-  const [apiKey, setApiKey] = useState<string>('');
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  
+  // API & Settings State
+  const [apiKey, setApiKey] = useState<string>('');
+  const [selectedModel, setSelectedModel] = useState<string>('gemini-3-pro-preview');
+  const [showApiModal, setShowApiModal] = useState(false);
+  
+  // Library State
+  const [showLibraryModal, setShowLibraryModal] = useState(false);
+  const [savedSessions, setSavedSessions] = useState<SavedSession[]>([]);
+
+  // Load saved sessions on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('sbgen_sessions');
+    if (saved) {
+        try {
+            setSavedSessions(JSON.parse(saved));
+        } catch (e) {
+            console.error("Failed to load sessions", e);
+        }
+    }
+  }, []);
+
+  // Save sessions helper
+  const saveSession = (newPrompts: ScenePrompt[], scriptName: string) => {
+      const newSession: SavedSession = {
+          id: Date.now().toString(),
+          name: scriptName || `Untitled ${new Date().toLocaleTimeString()}`,
+          timestamp: Date.now(),
+          prompts: newPrompts
+      };
+      const updatedSessions = [...savedSessions, newSession];
+      setSavedSessions(updatedSessions);
+      localStorage.setItem('sbgen_sessions', JSON.stringify(updatedSessions));
+  };
+
+  const handleDeleteSession = (id: string) => {
+      const updated = savedSessions.filter(s => s.id !== id);
+      setSavedSessions(updated);
+      localStorage.setItem('sbgen_sessions', JSON.stringify(updated));
+      addToast('info', 'Deleted', 'Session removed from library.');
+  };
+
+  const handleDownloadSession = (session: SavedSession) => {
+      exportToExcel(session.prompts, `storyboard_${session.name.replace(/\s+/g, '_')}`);
+      // Also download TXT for consistency with old behavior if needed, but Excel usually suffices. 
+      // Let's create a TXT as well for "AudioScriptImageSync" compatibility mentioned in guide.
+      const txtContent = session.prompts.map(p => `${p.scriptLine}`).join('\n');
+      const blob = new Blob([txtContent], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `script_${session.name.replace(/\s+/g, '_')}_${session.id}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+  };
+
 
   // Toast Helper
   const addToast = (type: ToastType, title: string, message: string) => {
@@ -562,11 +719,12 @@ const App: FC = () => {
           // Priority: User Input > Env Var
           const effectiveKey = apiKey || process.env.API_KEY || "";
           if (!effectiveKey) {
-             addToast('error', 'Missing API Key', 'Please enter a Google GenAI API Key.');
+             addToast('error', 'Missing API Key', 'Please configure your API Key in Settings.');
+             setShowApiModal(true); // Open modal if missing
              setIsStandardizing(false);
              return;
           }
-          const result = await standardizeScriptWithAI(scenario, effectiveKey);
+          const result = await standardizeScriptWithAI(scenario, effectiveKey, selectedModel);
           setStandardizedScript(result);
           addToast('success', 'Success', 'Script standardized successfully.');
       } catch (error: any) {
@@ -594,7 +752,8 @@ const App: FC = () => {
            // Priority: User Input > Env Var
            const effectiveKey = apiKey || process.env.API_KEY || "";
            if (!effectiveKey) {
-             addToast('error', 'Missing API Key', 'Please enter a Google GenAI API Key.');
+             addToast('error', 'Missing API Key', 'Please configure your API Key in Settings.');
+             setShowApiModal(true);
              setIsBuilding(false);
              return;
           }
@@ -607,7 +766,8 @@ const App: FC = () => {
               effectiveKey,
               GENERAL_STYLE,
               mode,
-              segmentationMode
+              segmentationMode,
+              selectedModel
           );
           
           const newPrompts = results.map((item: any, index: number) => ({
@@ -619,7 +779,8 @@ const App: FC = () => {
           }));
           
           setPrompts(newPrompts);
-          addToast('success', 'Success', `Generated ${newPrompts.length} scenes.`);
+          saveSession(newPrompts, scriptFileName || "Manual Scenario"); // Auto-save to library
+          addToast('success', 'Success', `Generated ${newPrompts.length} scenes & Saved to Library.`);
           
       } catch (error: any) {
           addToast('error', 'Generation Error', error.message);
@@ -629,35 +790,52 @@ const App: FC = () => {
   };
   
   const handleDownloadExcel = () => {
-      if (prompts.length === 0) return;
-      
-      const wsData = prompts.map(p => ({
-          'Scene': p.id,
-          'Phase': p.phase,
-          'Script Line': p.scriptLine,
-          'Image Prompt': p.imagePrompt,
-          'Video Prompt': p.videoPrompt
-      }));
-      
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(wsData);
-      
-      const wscols = Object.keys(wsData[0]).map(k => ({ wch: 20 }));
-      ws['!cols'] = wscols;
-      
-      XLSX.utils.book_append_sheet(wb, ws, "Storyboard");
-      XLSX.writeFile(wb, `storyboard_${getTimestamp()}.xlsx`);
+      exportToExcel(prompts);
   };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-emerald-500/30">
         <ToastContainer toasts={toasts} onClose={removeToast} />
         
+        {/* Modals */}
+        <ApiSettingsModal 
+            isOpen={showApiModal} 
+            onClose={() => setShowApiModal(false)}
+            apiKey={apiKey}
+            setApiKey={setApiKey}
+            selectedModel={selectedModel}
+            setSelectedModel={setSelectedModel}
+        />
+        
+        <LibraryModal 
+            isOpen={showLibraryModal}
+            onClose={() => setShowLibraryModal(false)}
+            sessions={savedSessions}
+            onDelete={handleDeleteSession}
+            onDownload={handleDownloadSession}
+        />
+
         <header className="bg-slate-900/80 backdrop-blur border-b border-slate-800 sticky top-0 z-40">
             <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <div className="w-8 h-8 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-lg flex items-center justify-center text-slate-900 font-bold text-xl shadow-lg shadow-emerald-500/20">S</div>
                     <h1 className="font-bold text-lg tracking-tight text-white">Storyboard<span className="text-emerald-400">Gen</span> AI</h1>
+                </div>
+                <div className="flex items-center gap-3">
+                    <button 
+                        onClick={() => setShowLibraryModal(true)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors text-sm font-medium border border-slate-700"
+                    >
+                        <LibraryIcon className="h-4 w-4" />
+                        Library
+                    </button>
+                    <button 
+                        onClick={() => setShowApiModal(true)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-900/30 text-emerald-400 hover:bg-emerald-900/50 transition-colors text-sm font-bold border border-emerald-500/30"
+                    >
+                        <KeyIcon className="h-4 w-4" />
+                        API
+                    </button>
                 </div>
             </div>
         </header>
@@ -682,8 +860,6 @@ const App: FC = () => {
                         onDownloadStandardized={handleDownloadStandardized}
                         segmentationMode={segmentationMode}
                         setSegmentationMode={setSegmentationMode}
-                        apiKey={apiKey}
-                        setApiKey={setApiKey}
                     />
                 </div>
 
