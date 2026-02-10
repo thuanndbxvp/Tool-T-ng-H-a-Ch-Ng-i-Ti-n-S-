@@ -124,6 +124,12 @@ const DocumentIcon: FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
+const TextDocumentIcon: FC<{ className?: string }> = ({ className }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0h5.625M12 10.5h.008v.008H12V10.5Zm0 4.5h.008v.008H12V15Zm0 4.5h.008v.008H12v-.008ZM9.75 6.75h.75a.75.75 0 0 1 .75.75v11.25a.75.75 0 0 1-.75.75h-.75a.75.75 0 0 1-.75-.75V7.5a.75.75 0 0 1 .75-.75Zm0 0h12.375m-9.375 12h8.625" />
+    </svg>
+);
+
 const DownloadIcon: FC<{ className?: string }> = ({ className }) => (
     <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
@@ -151,6 +157,12 @@ const InformationCircleIcon: FC<{ className?: string }> = ({ className }) => (
 const XMarkIcon: FC<{ className?: string }> = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+  </svg>
+);
+
+const ArrowPathIcon: FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
   </svg>
 );
 
@@ -275,7 +287,7 @@ const WelcomeGuide: FC = () => (
                 <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">5</div>
                 <h3 className="font-bold text-slate-200 mb-2">Tạo ảnh hàng loạt</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                    Sử dụng tool <a href="https://github.com/duckmartians/G-Labs-Automation/releases/tag/v1.2.6" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">G-lab-Automation</a> với file Excel (bước 4) để tự động tạo ảnh từ prompt.
+                    Sử dụng tool <a href="https://github.com/duckmartians/G-Labs-Automation/releases/tag/v1.2.6" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">G-lab-Automation</a> hoặc <a href="https://chromewebstore.google.com/detail/auto-whisk-automator-for/gedfnhdibkfgacmkbjgpfjihacalnlpn" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">Auto Whisk Automator</a> với file Excel (bước 4) để tự động tạo ảnh từ prompt. <br/><br/>Hoặc các bạn có thể sử dụng bất kỳ tool tạo ảnh nào đang dùng.
                 </p>
             </div>
 
@@ -448,12 +460,13 @@ interface ControlPanelProps {
   onDownloadStandardized: () => void;
   segmentationMode: 'ai' | 'punctuation';
   setSegmentationMode: (mode: 'ai' | 'punctuation') => void;
+  hasPrompts: boolean;
 }
 const ControlPanel: FC<ControlPanelProps> = ({ 
     mode, setMode, scenario, setScenario, referenceImages, 
     onImageUpload, onScriptUpload, onBuildPrompts, isBuilding, 
     scriptFileName, onStandardizeScript, isStandardizing, standardizedScript, onDownloadStandardized,
-    segmentationMode, setSegmentationMode
+    segmentationMode, setSegmentationMode, hasPrompts
 }) => {
   const charImgRef = useRef<HTMLInputElement>(null);
   const scriptFileRef = useRef<HTMLInputElement>(null);
@@ -579,10 +592,10 @@ const ControlPanel: FC<ControlPanelProps> = ({
                 <button
                     onClick={onBuildPrompts}
                     disabled={!canBuild || isBuilding}
-                    className={`w-full py-3 px-4 rounded-md font-semibold transition-all flex items-center justify-center text-white bg-blue-600 hover:bg-blue-500 disabled:bg-slate-600 disabled:text-slate-400 disabled:cursor-not-allowed shadow-lg`}
+                    className={`w-full py-3 px-4 rounded-md font-semibold transition-all flex items-center justify-center text-white ${hasPrompts ? 'bg-amber-600 hover:bg-amber-500' : 'bg-blue-600 hover:bg-blue-500'} disabled:bg-slate-600 disabled:text-slate-400 disabled:cursor-not-allowed shadow-lg`}
                 >
-                    {isBuilding ? <SpinnerIcon className="animate-spin h-5 w-5 mr-2" /> : null}
-                    {isBuilding ? 'AI is analyzing...' : 'Generate Pro Storyboard'}
+                    {isBuilding ? <SpinnerIcon className="animate-spin h-5 w-5 mr-2" /> : hasPrompts ? <ArrowPathIcon className="h-5 w-5 mr-2" /> : null}
+                    {isBuilding ? 'AI is analyzing...' : hasPrompts ? 'Re-Generate Pro Storyboard' : 'Generate Pro Storyboard'}
                 </button>
             </div>
           </div>
@@ -793,6 +806,18 @@ const App: FC = () => {
       exportToExcel(prompts);
   };
 
+  const handleDownloadTxt = () => {
+      if (prompts.length === 0) return;
+      const txtContent = prompts.map(p => p.scriptLine).join('\n');
+      const blob = new Blob([txtContent], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `script_${getTimestamp()}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-emerald-500/30">
         <ToastContainer toasts={toasts} onClose={removeToast} />
@@ -817,7 +842,11 @@ const App: FC = () => {
 
         <header className="bg-slate-900/80 backdrop-blur border-b border-slate-800 sticky top-0 z-40">
             <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-                <div className="flex items-center gap-2">
+                <div 
+                    className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity" 
+                    onClick={() => window.location.reload()}
+                    title="Refresh Application"
+                >
                     <div className="w-8 h-8 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-lg flex items-center justify-center text-slate-900 font-bold text-xl shadow-lg shadow-emerald-500/20">S</div>
                     <h1 className="font-bold text-lg tracking-tight text-white">Storyboard<span className="text-emerald-400">Gen</span> AI</h1>
                 </div>
@@ -860,6 +889,7 @@ const App: FC = () => {
                         onDownloadStandardized={handleDownloadStandardized}
                         segmentationMode={segmentationMode}
                         setSegmentationMode={setSegmentationMode}
+                        hasPrompts={prompts.length > 0}
                     />
                 </div>
 
@@ -873,12 +903,20 @@ const App: FC = () => {
                                     <SparklesIcon className="h-5 w-5 text-emerald-400" />
                                     Generated Storyboard ({prompts.length} scenes)
                                 </h2>
-                                <button 
-                                    onClick={handleDownloadExcel}
-                                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium text-sm transition-colors flex items-center gap-2 shadow-lg shadow-emerald-500/20"
-                                >
-                                    <DownloadIcon className="h-4 w-4" /> Export Excel
-                                </button>
+                                <div className="flex items-center gap-3">
+                                    <button 
+                                        onClick={handleDownloadTxt}
+                                        className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium text-sm transition-colors flex items-center gap-2 border border-slate-600"
+                                    >
+                                        <TextDocumentIcon className="h-4 w-4" /> Export Script (.txt)
+                                    </button>
+                                    <button 
+                                        onClick={handleDownloadExcel}
+                                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium text-sm transition-colors flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+                                    >
+                                        <DownloadIcon className="h-4 w-4" /> Export Excel
+                                    </button>
+                                </div>
                             </div>
                             
                             <div className="space-y-4">
