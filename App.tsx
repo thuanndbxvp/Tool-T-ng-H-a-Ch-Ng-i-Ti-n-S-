@@ -39,8 +39,8 @@ type AppMode = 'general';
 
 // Models
 const MODELS = [
-    { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro (Complex Reasoning)', recommended: true },
-    { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash (Fast & Cheap)', recommended: false },
+    { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro (Complex Reasoning)', recommended: false },
+    { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash (Fast & Cheap)', recommended: true },
 ];
 
 // Toast Types
@@ -606,7 +606,7 @@ const App: FC = () => {
   
   // API & Settings State
   const [apiKey, setApiKey] = useState<string>('');
-  const [selectedModel, setSelectedModel] = useState<string>('gemini-3-pro-preview');
+  const [selectedModel, setSelectedModel] = useState<string>('gemini-3-flash-preview');
   const [showApiModal, setShowApiModal] = useState(false);
   
   // Library State

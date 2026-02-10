@@ -50,7 +50,7 @@ export const analyzeScriptWithAI = async (
     styleLock: string, 
     mode: string,
     segmentationMode: 'ai' | 'punctuation',
-    modelName: string = "gemini-3-pro-preview"
+    modelName: string = "gemini-3-flash-preview"
 ): Promise<any[]> => {
   if (!apiKey) throw new Error("Vui lòng cấu hình API Key Google.");
   
