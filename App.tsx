@@ -39,8 +39,8 @@ type AppMode = 'general';
 
 // Models
 const MODELS = [
-    { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro (Complex Reasoning)', recommended: false },
-    { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash (Fast & Cheap)', recommended: true },
+    { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro (Tư duy phức tạp)', recommended: false },
+    { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash (Nhanh & Tiết kiệm)', recommended: true },
 ];
 
 // Toast Types
@@ -203,6 +203,12 @@ const LibraryIcon: FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
+const BookOpenIcon: FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+  </svg>
+);
+
 // --- CHILD COMPONENTS ---
 
 // TOAST COMPONENTS
@@ -248,14 +254,14 @@ const WelcomeGuide: FC = () => (
     <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-8 backdrop-blur-sm shadow-xl animate-fade-in min-h-[50vh] flex flex-col justify-center">
         <h2 className="text-2xl font-bold text-white mb-8 flex items-center gap-3">
             <span className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-emerald-500 flex items-center justify-center text-lg shadow-lg">👋</span>
-            Hướng dẫn nhanh
+            Vui lòng đọc kỹ hướng dẫn và nhập API để bắt đầu
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 hover:border-emerald-500/30 transition-all shadow-sm">
                 <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">1</div>
                 <h3 className="font-bold text-slate-200 mb-2">Cấu hình API Key</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                   Bấm nút <strong>API</strong> góc trên bên phải để nhập Key. Lấy API Key miễn phí tại: <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline font-bold">Google AI Studio</a>.
+                   Bấm nút <strong>API</strong> góc trên bên phải để nhập Key. Tool mặc định chọn Gemini 3 Flash, nhưng bạn có thể chuyển sang Gemini 3 Pro nếu API key của bạn có. Lấy API Key miễn phí tại: <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline font-bold">Google AI Studio</a>.
                 </p>
             </div>
 
@@ -287,7 +293,7 @@ const WelcomeGuide: FC = () => (
                 <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">5</div>
                 <h3 className="font-bold text-slate-200 mb-2">Tạo ảnh hàng loạt</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                    Sử dụng tool <a href="https://github.com/duckmartians/G-Labs-Automation/releases/tag/v1.2.6" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">G-lab-Automation</a> hoặc <a href="https://chromewebstore.google.com/detail/auto-whisk-automator-for/gedfnhdibkfgacmkbjgpfjihacalnlpn" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">Auto Whisk Automator</a> với file Excel (bước 4) để tự động tạo ảnh từ prompt. <br/><br/>Hoặc các bạn có thể sử dụng bất kỳ tool tạo ảnh nào đang dùng.
+                    Sử dụng tool <a href="https://github.com/duckmartians/G-Labs-Automation/releases/tag/v1.2.6" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">G-lab-Automation</a> hoặc <a href="https://chromewebstore.google.com/detail/auto-whisk-automator-for/gedfnhdibkfgacmkbjgpfjihacalnlpn" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">Auto Whisk Automator</a> với file Excel (bước 4) để tự động tạo ảnh từ prompt. <br/>Hoặc các bạn có thể sử dụng bất kỳ tool tạo ảnh nào đang dùng.
                 </p>
             </div>
 
@@ -337,7 +343,7 @@ const ApiSettingsModal: FC<{
                 </button>
                 <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
                     <KeyIcon className="h-6 w-6 text-emerald-400" />
-                    API & Model Settings
+                    Cài đặt API & Model
                 </h3>
                 
                 <div className="space-y-6">
@@ -347,16 +353,16 @@ const ApiSettingsModal: FC<{
                             type="password"
                             value={apiKey}
                             onChange={(e) => setApiKey(e.target.value)}
-                            placeholder="Enter your API Key"
+                            placeholder="Nhập API Key của bạn"
                             className="w-full bg-slate-800 border border-slate-700 p-3 rounded-md focus:ring-2 focus:ring-emerald-500 text-white text-sm"
                         />
                         <p className="text-xs text-slate-500 mt-2">
-                            Get your free key at <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">Google AI Studio</a>.
+                            Lấy key miễn phí tại <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">Google AI Studio</a>.
                         </p>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Select Model</label>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">Chọn Model</label>
                         <div className="space-y-2">
                             {MODELS.map(model => (
                                 <button
@@ -365,7 +371,7 @@ const ApiSettingsModal: FC<{
                                     className={`w-full p-3 rounded-lg border text-left transition-all ${selectedModel === model.id ? 'bg-emerald-900/30 border-emerald-500 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600'}`}
                                 >
                                     <div className="font-bold text-sm">{model.name}</div>
-                                    {model.recommended && <div className="text-[10px] uppercase tracking-wider font-bold text-emerald-500 mt-1">Recommended</div>}
+                                    {model.recommended && <div className="text-[10px] uppercase tracking-wider font-bold text-emerald-500 mt-1">Khuyên dùng</div>}
                                 </button>
                             ))}
                         </div>
@@ -374,8 +380,105 @@ const ApiSettingsModal: FC<{
 
                 <div className="mt-8 flex justify-end">
                     <button onClick={onClose} className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-lg font-bold text-sm transition-colors">
-                        Done
+                        Hoàn tất
                     </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const GuideModal: FC<{
+    isOpen: boolean;
+    onClose: () => void;
+}> = ({ isOpen, onClose }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl p-6 shadow-2xl relative max-h-[90vh] flex flex-col">
+                <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white">
+                    <XMarkIcon className="h-6 w-6" />
+                </button>
+                <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                    <BookOpenIcon className="h-6 w-6 text-emerald-400" />
+                    Hướng dẫn sử dụng
+                </h3>
+                
+                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar p-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Step 1 */}
+                        <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 hover:border-emerald-500/30 transition-all shadow-sm">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">1</div>
+                            <h3 className="font-bold text-slate-200 mb-2">Cấu hình API Key</h3>
+                            <p className="text-xs text-slate-400 leading-relaxed">
+                            Bấm nút <strong>API</strong> góc trên bên phải để nhập Key. Tool mặc định chọn Gemini 3 Flash, nhưng bạn có thể chuyển sang Gemini 3 Pro nếu API key của bạn có. Lấy API Key miễn phí tại: <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline font-bold">Google AI Studio</a>.
+                            </p>
+                        </div>
+
+                        {/* Step 2 */}
+                        <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 hover:border-emerald-500/30 transition-all shadow-sm">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">2</div>
+                            <h3 className="font-bold text-slate-200 mb-2">Nhập liệu</h3>
+                            <p className="text-xs text-slate-400 leading-relaxed">
+                                Upload script (.txt, .srt) hoặc dán văn bản. Tải lên <strong>Ảnh tham chiếu</strong> để AI nhúng phong cách vào prompt.
+                            </p>
+                        </div>
+
+                        {/* Step 3 */}
+                        <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 hover:border-emerald-500/30 transition-all shadow-sm">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">3</div>
+                            <h3 className="font-bold text-slate-200 mb-2">Phân tích & Tạo Prompt</h3>
+                            <p className="text-xs text-slate-400 leading-relaxed">
+                                Nhấn <strong>Generate Pro Storyboard</strong>. AI sẽ phân tách script thành các phân cảnh và tạo prompt hình ảnh/video chi tiết.
+                            </p>
+                        </div>
+
+                        {/* Step 4 */}
+                        <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 hover:border-emerald-500/30 transition-all shadow-sm">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">4</div>
+                            <h3 className="font-bold text-slate-200 mb-2">Xuất kết quả</h3>
+                            <p className="text-xs text-slate-400 leading-relaxed">
+                                Tải file <strong>Excel</strong> chứa toàn bộ prompt để sử dụng cho các công cụ tạo ảnh/video chuyên dụng khác. Tải file <strong>TXT</strong> để đồng bộ.
+                            </p>
+                        </div>
+
+                        {/* Step 5 */}
+                        <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 hover:border-emerald-500/30 transition-all shadow-sm">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">5</div>
+                            <h3 className="font-bold text-slate-200 mb-2">Tạo ảnh hàng loạt</h3>
+                            <p className="text-xs text-slate-400 leading-relaxed">
+                                Sử dụng tool <a href="https://github.com/duckmartians/G-Labs-Automation/releases/tag/v1.2.6" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">G-lab-Automation</a> hoặc <a href="https://chromewebstore.google.com/detail/auto-whisk-automator-for/gedfnhdibkfgacmkbjgpfjihacalnlpn" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">Auto Whisk Automator</a> với file Excel (bước 4) để tự động tạo ảnh từ prompt. <br/>Hoặc các bạn có thể sử dụng bất kỳ tool tạo ảnh nào đang dùng.
+                            </p>
+                        </div>
+
+                        {/* Step 6 */}
+                        <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 hover:border-emerald-500/30 transition-all shadow-sm">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">6</div>
+                            <h3 className="font-bold text-slate-200 mb-2">Chuẩn bị tài nguyên</h3>
+                            <p className="text-xs text-slate-400 leading-relaxed">
+                                Gom tất cả vào 1 thư mục: File script (.txt từ bước 4), toàn bộ ảnh đã tạo, và file Audio giọng đọc (từ 11Labs/Minimax/...).
+                            </p>
+                        </div>
+
+                        {/* Step 7 */}
+                        <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 hover:border-emerald-500/30 transition-all shadow-sm">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">7</div>
+                            <h3 className="font-bold text-slate-200 mb-2">Đồng bộ Audio & Hình ảnh</h3>
+                            <p className="text-xs text-slate-400 leading-relaxed">
+                                Mở tool <strong>AudioScriptImageSync</strong>. Tại ô "Upload All", chọn toàn bộ file trong thư mục bước 6. Nhấn <strong>Analyze & Sync</strong>.
+                            </p>
+                        </div>
+
+                        {/* Step 8 */}
+                        <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 hover:border-emerald-500/30 transition-all shadow-sm">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">8</div>
+                            <h3 className="font-bold text-slate-200 mb-2">Xuất Video</h3>
+                            <p className="text-xs text-slate-400 leading-relaxed">
+                                Sau khi Sync xong, nhấn <strong>Create MP4</strong>. Chờ xử lý rồi nhấn <strong>Download</strong> để tải video hoàn thiện.
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -399,37 +502,37 @@ const LibraryModal: FC<{
                 </button>
                 <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
                     <LibraryIcon className="h-6 w-6 text-emerald-400" />
-                    Session Library
+                    Thư viện Session
                 </h3>
-                <p className="text-slate-400 text-sm mb-6">Saved sessions are stored locally in your browser.</p>
+                <p className="text-slate-400 text-sm mb-6">Các phiên làm việc được lưu cục bộ trên trình duyệt.</p>
 
                 <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
                     {sessions.length === 0 ? (
                         <div className="text-center py-12 text-slate-500 border-2 border-dashed border-slate-800 rounded-xl">
-                            <p>No saved sessions found.</p>
+                            <p>Không tìm thấy phiên làm việc nào.</p>
                         </div>
                     ) : (
                         sessions.slice().reverse().map(session => (
                             <div key={session.id} className="bg-slate-800/50 border border-slate-700 p-4 rounded-xl flex items-center justify-between group hover:border-slate-600 transition-colors">
                                 <div>
-                                    <h4 className="font-bold text-slate-200 text-sm mb-1">{session.name || 'Untitled Session'}</h4>
+                                    <h4 className="font-bold text-slate-200 text-sm mb-1">{session.name || 'Session không tên'}</h4>
                                     <div className="flex items-center gap-4 text-xs text-slate-500">
                                         <span className="flex items-center gap-1"><ClockIcon className="h-3 w-3" /> {formatDate(session.timestamp)}</span>
-                                        <span className="bg-slate-800 px-2 py-0.5 rounded text-emerald-400 font-mono">{session.prompts.length} scenes</span>
+                                        <span className="bg-slate-800 px-2 py-0.5 rounded text-emerald-400 font-mono">{session.prompts.length} cảnh</span>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
                                      <button 
                                         onClick={() => onDownload(session)}
                                         className="p-2 text-slate-400 hover:text-emerald-400 hover:bg-emerald-900/20 rounded-lg transition-colors"
-                                        title="Download Excel"
+                                        title="Tải Excel"
                                      >
                                         <DownloadIcon className="h-5 w-5" />
                                     </button>
                                     <button 
                                         onClick={() => onDelete(session.id)}
                                         className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-colors"
-                                        title="Delete"
+                                        title="Xóa"
                                     >
                                         <TrashIcon className="h-5 w-5" />
                                     </button>
@@ -480,21 +583,21 @@ const ControlPanel: FC<ControlPanelProps> = ({
   return (
     <div className="bg-slate-950/50 border border-slate-800 p-6 rounded-2xl sticky top-6 shadow-2xl backdrop-blur-md">
       
-      <h2 className="text-xl font-bold text-emerald-400 mb-6">1. Setup</h2>
+      <h2 className="text-xl font-bold text-emerald-400 mb-6">1. Cấu hình</h2>
       
       <div className="flex flex-col gap-6">
           {/* COLUMN 1: Inputs */}
           <div className="flex flex-col gap-6">
             {/* Reference Images */}
             <div className="animate-fade-in">
-                <label className="block text-sm font-medium text-slate-300 mb-2">📸 Ảnh tham chiếu phong cách (Max {MAX_REFERENCE_IMAGES})</label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">📸 Ảnh tham chiếu phong cách (Tối đa {MAX_REFERENCE_IMAGES})</label>
                 <div 
                     onClick={() => charImgRef.current?.click()}
                     className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-600 border-dashed rounded-md cursor-pointer hover:border-emerald-500 transition-colors bg-slate-800/30"
                 >
                     <div className="space-y-1 text-center">
                     <UploadIcon className="mx-auto h-12 w-12 text-slate-400" />
-                    <p className="text-sm text-slate-400">Click to upload files</p>
+                    <p className="text-sm text-slate-400">Nhấn để tải file</p>
                     </div>
                 </div>
                 <input ref={charImgRef} type="file" accept="image/*" multiple onChange={onImageUpload} className="hidden" />
@@ -537,8 +640,7 @@ const ControlPanel: FC<ControlPanelProps> = ({
                 rows={6}
                 className="w-full bg-slate-800 border border-slate-700 p-3 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-inner text-white text-sm"
                 ></textarea>
-                <p className="text-[10px] text-slate-500 mt-1 italic font-semibold text-emerald-400/80">* Powered by Gemini 3 Pro Preview (Reasoning Model)</p>
-            </div>
+                           </div>
           </div>
 
           {/* COLUMN 2: Actions */}
@@ -552,7 +654,7 @@ const ControlPanel: FC<ControlPanelProps> = ({
                         className="w-full py-2.5 px-4 rounded-md font-semibold text-sm transition-all flex items-center justify-center gap-2 bg-slate-800 text-emerald-400 hover:bg-slate-700 border border-slate-700 hover:border-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {isStandardizing ? <SpinnerIcon className="animate-spin h-4 w-4" /> : <SparklesIcon className="h-4 w-4" />}
-                        {isStandardizing ? 'Cleaning...' : 'Chuẩn hóa kịch bản'}
+                        {isStandardizing ? 'Đang xử lý...' : 'Chuẩn hóa kịch bản'}
                     </button>
                 ) : (
                     <button
@@ -577,7 +679,7 @@ const ControlPanel: FC<ControlPanelProps> = ({
                         onClick={() => setSegmentationMode('ai')}
                         className={`p-3 rounded-xl text-xs font-bold transition-all border shadow-lg flex flex-col items-center gap-1 ${segmentationMode === 'ai' ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:border-slate-500'}`}
                     >
-                        <span>🤖 AI Semantic</span>
+                        <span>🤖 AI Tự động</span>
                         <span className="font-medium opacity-70 text-[10px]">7-15 từ/cảnh</span>
                     </button>
                     <button
@@ -595,7 +697,7 @@ const ControlPanel: FC<ControlPanelProps> = ({
                     className={`w-full py-3 px-4 rounded-md font-semibold transition-all flex items-center justify-center text-white ${hasPrompts ? 'bg-amber-600 hover:bg-amber-500' : 'bg-blue-600 hover:bg-blue-500'} disabled:bg-slate-600 disabled:text-slate-400 disabled:cursor-not-allowed shadow-lg`}
                 >
                     {isBuilding ? <SpinnerIcon className="animate-spin h-5 w-5 mr-2" /> : hasPrompts ? <ArrowPathIcon className="h-5 w-5 mr-2" /> : null}
-                    {isBuilding ? 'AI is analyzing...' : hasPrompts ? 'Re-Generate Pro Storyboard' : 'Generate Pro Storyboard'}
+                    {isBuilding ? 'AI đang phân tích...' : hasPrompts ? 'Tạo lại Storyboard Pro' : 'Tạo Storyboard Pro'}
                 </button>
             </div>
           </div>
@@ -624,6 +726,7 @@ const App: FC = () => {
   
   // Library State
   const [showLibraryModal, setShowLibraryModal] = useState(false);
+  const [showGuideModal, setShowGuideModal] = useState(false);
   const [savedSessions, setSavedSessions] = useState<SavedSession[]>([]);
 
   // Load saved sessions on mount
@@ -655,7 +758,7 @@ const App: FC = () => {
       const updated = savedSessions.filter(s => s.id !== id);
       setSavedSessions(updated);
       localStorage.setItem('sbgen_sessions', JSON.stringify(updated));
-      addToast('info', 'Deleted', 'Session removed from library.');
+      addToast('info', 'Đã xóa', 'Đã xóa phiên làm việc khỏi thư viện.');
   };
 
   const handleDownloadSession = (session: SavedSession) => {
@@ -688,7 +791,7 @@ const App: FC = () => {
     if (e.target.files) {
       const files: File[] = Array.from(e.target.files) as File[];
       if (referenceImages.length + files.length > MAX_REFERENCE_IMAGES) {
-        addToast('error', 'Limit Exceeded', `Maximum ${MAX_REFERENCE_IMAGES} reference images allowed.`);
+        addToast('error', 'Quá giới hạn', `Tối đa ${MAX_REFERENCE_IMAGES} ảnh tham chiếu.`);
         return;
       }
       
@@ -700,7 +803,7 @@ const App: FC = () => {
               newImages.push({ name: file.name, dataUrl, base64, mimeType });
           } catch (err) {
               console.error(err);
-              addToast('error', 'Upload Error', `Failed to process ${file.name}`);
+              addToast('error', 'Lỗi tải lên', `Không thể xử lý ${file.name}`);
           }
       }
       setReferenceImages(prev => [...prev, ...newImages]);
@@ -720,7 +823,7 @@ const App: FC = () => {
           } else {
               setScenario(content);
           }
-          addToast('success', 'Script Loaded', `Loaded ${file.name}`);
+          addToast('success', 'Đã tải kịch bản', `Đã tải ${file.name}`);
       };
       reader.readAsText(file);
   };
@@ -732,16 +835,16 @@ const App: FC = () => {
           // Priority: User Input > Env Var
           const effectiveKey = apiKey || process.env.API_KEY || "";
           if (!effectiveKey) {
-             addToast('error', 'Missing API Key', 'Please configure your API Key in Settings.');
+             addToast('error', 'Thiếu API Key', 'Vui lòng cấu hình API Key trong Cài đặt.');
              setShowApiModal(true); // Open modal if missing
              setIsStandardizing(false);
              return;
           }
           const result = await standardizeScriptWithAI(scenario, effectiveKey, selectedModel);
           setStandardizedScript(result);
-          addToast('success', 'Success', 'Script standardized successfully.');
+          addToast('success', 'Thành công', 'Kịch bản đã được chuẩn hóa.');
       } catch (error: any) {
-          addToast('error', 'Error', error.message);
+          addToast('error', 'Lỗi', error.message);
       } finally {
           setIsStandardizing(false);
       }
@@ -765,7 +868,7 @@ const App: FC = () => {
            // Priority: User Input > Env Var
            const effectiveKey = apiKey || process.env.API_KEY || "";
            if (!effectiveKey) {
-             addToast('error', 'Missing API Key', 'Please configure your API Key in Settings.');
+             addToast('error', 'Thiếu API Key', 'Vui lòng cấu hình API Key trong Cài đặt.');
              setShowApiModal(true);
              setIsBuilding(false);
              return;
@@ -793,10 +896,10 @@ const App: FC = () => {
           
           setPrompts(newPrompts);
           saveSession(newPrompts, scriptFileName || "Manual Scenario"); // Auto-save to library
-          addToast('success', 'Success', `Generated ${newPrompts.length} scenes & Saved to Library.`);
+          addToast('success', 'Thành công', `Đã tạo ${newPrompts.length} cảnh & Lưu vào Thư viện.`);
           
       } catch (error: any) {
-          addToast('error', 'Generation Error', error.message);
+          addToast('error', 'Lỗi tạo nội dung', error.message);
       } finally {
           setIsBuilding(false);
       }
@@ -840,23 +943,35 @@ const App: FC = () => {
             onDownload={handleDownloadSession}
         />
 
+        <GuideModal 
+            isOpen={showGuideModal}
+            onClose={() => setShowGuideModal(false)}
+        />
+
         <header className="bg-slate-900/80 backdrop-blur border-b border-slate-800 sticky top-0 z-40">
             <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
                 <div 
                     className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity" 
                     onClick={() => window.location.reload()}
-                    title="Refresh Application"
+                    title="Làm mới ứng dụng"
                 >
                     <div className="w-8 h-8 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-lg flex items-center justify-center text-slate-900 font-bold text-xl shadow-lg shadow-emerald-500/20">S</div>
                     <h1 className="font-bold text-lg tracking-tight text-white">Storyboard<span className="text-emerald-400">Gen</span> AI</h1>
                 </div>
                 <div className="flex items-center gap-3">
                     <button 
+                        onClick={() => setShowGuideModal(true)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors text-sm font-medium border border-slate-700"
+                    >
+                        <BookOpenIcon className="h-4 w-4" />
+                        Hướng dẫn
+                    </button>
+                    <button 
                         onClick={() => setShowLibraryModal(true)}
                         className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors text-sm font-medium border border-slate-700"
                     >
                         <LibraryIcon className="h-4 w-4" />
-                        Library
+                        Thư viện
                     </button>
                     <button 
                         onClick={() => setShowApiModal(true)}
@@ -901,20 +1016,20 @@ const App: FC = () => {
                             <div className="flex items-center justify-between bg-slate-900/50 p-4 rounded-xl border border-slate-800">
                                 <h2 className="text-xl font-bold text-white flex items-center gap-2">
                                     <SparklesIcon className="h-5 w-5 text-emerald-400" />
-                                    Generated Storyboard ({prompts.length} scenes)
+                                    Storyboard đã tạo ({prompts.length} cảnh)
                                 </h2>
                                 <div className="flex items-center gap-3">
                                     <button 
                                         onClick={handleDownloadTxt}
                                         className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium text-sm transition-colors flex items-center gap-2 border border-slate-600"
                                     >
-                                        <TextDocumentIcon className="h-4 w-4" /> Export Script (.txt)
+                                        <TextDocumentIcon className="h-4 w-4" /> Xuất Script (.txt)
                                     </button>
                                     <button 
                                         onClick={handleDownloadExcel}
                                         className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium text-sm transition-colors flex items-center gap-2 shadow-lg shadow-emerald-500/20"
                                     >
-                                        <DownloadIcon className="h-4 w-4" /> Export Excel
+                                        <DownloadIcon className="h-4 w-4" /> Xuất Excel
                                     </button>
                                 </div>
                             </div>
@@ -923,7 +1038,7 @@ const App: FC = () => {
                                 {prompts.map((scene, idx) => (
                                     <div key={scene.id} className="bg-slate-900 border border-slate-800 rounded-xl p-5 hover:border-emerald-500/30 transition-all shadow-sm">
                                         <div className="flex justify-between items-start mb-3">
-                                            <span className="bg-slate-800 text-slate-400 text-xs font-bold px-2 py-1 rounded uppercase tracking-wider">Scene {idx + 1}</span>
+                                            <span className="bg-slate-800 text-slate-400 text-xs font-bold px-2 py-1 rounded uppercase tracking-wider">Cảnh {idx + 1}</span>
                                             <span className="text-xs font-mono text-emerald-400">{scene.phase}</span>
                                         </div>
                                         <div className="mb-4">
@@ -931,11 +1046,11 @@ const App: FC = () => {
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                                             <div className="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50">
-                                                <p className="text-xs text-slate-500 font-bold mb-1 uppercase">Image Prompt</p>
+                                                <p className="text-xs text-slate-500 font-bold mb-1 uppercase">Mô tả Hình ảnh</p>
                                                 <p className="text-slate-300 leading-relaxed text-xs">{scene.imagePrompt}</p>
                                             </div>
                                             <div className="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50">
-                                                <p className="text-xs text-slate-500 font-bold mb-1 uppercase">Video Prompt</p>
+                                                <p className="text-xs text-slate-500 font-bold mb-1 uppercase">Mô tả Video</p>
                                                 <p className="text-slate-300 leading-relaxed text-xs">{scene.videoPrompt}</p>
                                             </div>
                                         </div>
