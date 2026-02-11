@@ -626,6 +626,7 @@ const ControlPanel: FC<ControlPanelProps> = ({
 }) => {
   const charImgRef = useRef<HTMLInputElement>(null);
   const scriptFileRef = useRef<HTMLInputElement>(null);
+  const [isRefImagesExpanded, setIsRefImagesExpanded] = useState(false);
   
   const scriptReady = useMemo(() => scenario.trim() !== "" || scriptFileName !== null, [scenario, scriptFileName]);
 
@@ -671,29 +672,47 @@ const ControlPanel: FC<ControlPanelProps> = ({
 
             {/* Reference Images (Visible ONLY if style is 'reference') */}
             {selectedStyleId === 'reference' && (
-                <div className="animate-fade-in">
-                    <label className="block text-sm font-medium text-slate-300 mb-2">📸 Tải lên Ảnh tham chiếu (Tối đa {MAX_REFERENCE_IMAGES})</label>
-                    <div 
-                        onClick={() => charImgRef.current?.click()}
-                        className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-600 border-dashed rounded-md cursor-pointer hover:border-emerald-500 transition-colors bg-slate-800/30"
+                <div className="animate-fade-in border border-slate-700 rounded-xl overflow-hidden">
+                    <button 
+                        onClick={() => setIsRefImagesExpanded(!isRefImagesExpanded)}
+                        className="w-full flex items-center justify-between p-4 bg-slate-800/50 hover:bg-slate-800 transition-colors"
                     >
-                        <div className="space-y-1 text-center">
-                        <UploadIcon className="mx-auto h-12 w-12 text-slate-400" />
-                        <p className="text-sm text-slate-400">Nhấn để tải file</p>
-                        </div>
-                    </div>
-                    <input ref={charImgRef} type="file" accept="image/*" multiple onChange={onImageUpload} className="hidden" />
-                    <p className="text-xs text-amber-300 mt-3 font-semibold bg-amber-900/30 p-2.5 rounded-lg border border-amber-500/30 shadow-sm flex items-center gap-2">
-                        <InformationCircleIcon className="h-4 w-4 flex-shrink-0" />
-                        AI sẽ phân tích các ảnh này để nhúng phong cách vào Prompt tạo ảnh.
-                    </p>
-                    {referenceImages.length > 0 && (
-                        <div className="mt-4 grid grid-cols-3 gap-2">
-                        {referenceImages.map((img) => (
-                            <div key={img.name} className="relative group">
-                                <img src={img.dataUrl} alt={img.name} className="rounded-md object-cover aspect-square border border-slate-700 shadow-sm" />
+                        <span className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                            📸 Tải lên Ảnh tham chiếu 
+                            <span className="text-xs text-slate-500 font-normal">(Tối đa {MAX_REFERENCE_IMAGES})</span>
+                        </span>
+                        {isRefImagesExpanded ? (
+                            <ChevronUpIcon className="h-4 w-4 text-slate-400" /> 
+                        ) : (
+                            <ChevronDownIcon className="h-4 w-4 text-slate-400" />
+                        )}
+                    </button>
+                    
+                    {isRefImagesExpanded && (
+                        <div className="p-4 bg-slate-900/30 border-t border-slate-700 animate-fade-in">
+                            <div 
+                                onClick={() => charImgRef.current?.click()}
+                                className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-600 border-dashed rounded-md cursor-pointer hover:border-emerald-500 transition-colors bg-slate-800/30"
+                            >
+                                <div className="space-y-1 text-center">
+                                <UploadIcon className="mx-auto h-12 w-12 text-slate-400" />
+                                <p className="text-sm text-slate-400">Nhấn để tải file</p>
+                                </div>
                             </div>
-                        ))}
+                            <input ref={charImgRef} type="file" accept="image/*" multiple onChange={onImageUpload} className="hidden" />
+                            <p className="text-xs text-amber-300 mt-3 font-semibold bg-amber-900/30 p-2.5 rounded-lg border border-amber-500/30 shadow-sm flex items-center gap-2">
+                                <InformationCircleIcon className="h-4 w-4 flex-shrink-0" />
+                                AI sẽ phân tích các ảnh này để nhúng phong cách vào Prompt tạo ảnh.
+                            </p>
+                            {referenceImages.length > 0 && (
+                                <div className="mt-4 grid grid-cols-3 gap-2">
+                                {referenceImages.map((img) => (
+                                    <div key={img.name} className="relative group">
+                                        <img src={img.dataUrl} alt={img.name} className="rounded-md object-cover aspect-square border border-slate-700 shadow-sm" />
+                                    </div>
+                                ))}
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
