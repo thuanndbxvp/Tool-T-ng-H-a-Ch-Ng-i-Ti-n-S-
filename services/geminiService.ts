@@ -90,38 +90,33 @@ Divide the entire script into EXACTLY ${targetSceneCount} scenes/segments.
       promptGenerationInstruction = `3. "imagePrompt": A self-contained, highly detailed visual description for a static image, optimized for Google Nano Banana (Gemini Image Models).
 ${commonStyleInjection}
    - **NO PARAMETERS**: Do not use Midjourney parameters (like --v 6.0, --ar 16:9). Use natural, descriptive English only.
-   - **CHARACTER CONSISTENCY**: You MUST explicitly describe the characters' appearance in EVERY SINGLE PROMPT (Age, Hair, Clothing, key features).
+   - **CHARACTER CONSISTENCY**: Analyze the script to identify the main characters. Describe their appearance consistently in EVERY SINGLE PROMPT (Age, Gender, Ethnicity, Hair, Clothing, key features) based on the script's context.
    - **VISUAL FIDELITY**: Focus on soft lighting, rich textures, and a clean composition suitable for the "Nano Banana" model (high adherence to prompt).
-   - **ACTION & MOOD**: Describe the scene action and atmosphere vividly.`;
+   - **ACTION & MOOD**: Describe the scene action and atmosphere vividly based on the script context.`;
   } else {
       promptGenerationInstruction = `3. "videoPrompt": A highly detailed video generation prompt optimized for Google Veo 3 (approx 8 seconds).
 ${commonStyleInjection}
    - **VISUAL NARRATIVE**: Describe the continuous motion, physics, and changes within the 8s clip.
    - **CAMERA & CINEMATOGRAPHY**: Specify camera movement (e.g., "Slow tracking shot", "Drone view", "Static camera with subtle subject motion", "Rack focus").
-   - **CHARACTER & ACTION**: Describe fluid movements (e.g., "Walking slowly with a cane", "Turning head to look out window"). Ensure characters appearance is described fully.
-   - **ATMOSPHERE**: Describe how light interacts with motion (e.g., "Dust motes dancing in light", "Hair blowing in wind").`;
+   - **CHARACTER & ACTION**: Describe fluid movements based on the script. Ensure characters appearance is described fully and consistently with the script's era/setting.
+   - **ATMOSPHERE**: Describe how light interacts with motion (e.g., "Dust motes dancing in light", "Hair blowing in wind", "Explosions", "Smoke").`;
   }
   
-  // Updated System Instruction
+  // Updated System Instruction - REMOVED HARDCODED BIAS
   const systemInstruction = `You are a professional storyboard artist and script analyst. 
-Target Audience: Elderly women over 60 years old. 
-Story Tone: Nostalgic, gentle, slightly melancholic ("u buồn"), deeply emotional, focused on memories and everyday life. 
 
 **TASK 1: CONTEXT & LOGIC ANALYSIS (CRITICAL)**
-- Read the ENTIRE text provided first to understand character relationships.
-- **Logical Aging**: Apply real-world logic to characters relationships.
-  - **Protagonist**: Elderly woman (70s).
-  - **Husband/Partner**: If present, MUST be an elderly man (~75 years old, gray hair, wrinkles) to match the wife. NEVER depict a young husband unless explicitly stated as a "Flashback".
-  - **Children**: Middle-aged (40s-50s).
-  - **Grandchildren**: Children (5s-10s).
-  - **Environment**: Maintain a consistent setting (e.g., old traditional house, tatami mats) unless the scene changes.
+- **Analyze the Script**: Determine the setting, time period, atmosphere, and characters based STRICTLY on the provided text.
+- **Character Consistency**: Identify the main characters from the text and maintain their visual consistency (Age, Gender, Ethnicity, Clothing) throughout the prompts.
+- **Setting**: Use the location and era described in the script (e.g., WWII Europe, Modern City, Fantasy World). Do NOT hallucinate a specific setting (like Japan/Tatami) unless it is in the script.
+- **Tone**: Adapt the visual tone to match the script (e.g., if the script is action-packed, use dynamic angles; if sad, use moody lighting).
 
 ${segmentationInstruction}
 
 **TASK 3: PROMPT GENERATION**
 For each segmented line (Scene), generate a JSON object with:
 1. "scriptLine": The exact segmented text line from the script based on the rules above.
-2. "phase": The narrative phase (e.g., "Introduction", "Climax").
+2. "phase": The narrative phase (e.g., "Introduction", "Climax", "Action", "Dialogue").
 ${promptGenerationInstruction}
 
 OUTPUT ONLY A JSON ARRAY.`;
