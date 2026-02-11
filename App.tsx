@@ -304,23 +304,23 @@ const WelcomeGuide: FC = () => (
                 <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">1</div>
                 <h3 className="font-bold text-slate-200 mb-2">Cấu hình API Key</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                   Bấm nút <strong>API</strong> góc trên bên phải để nhập Key. Tool mặc định chọn Gemini 3 Flash, nhưng bạn có thể chuyển sang Gemini 3 Pro nếu API key của bạn có. Lấy API Key miễn phí tại: <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline font-bold">Google AI Studio</a>.
+                   Bấm nút <strong>API</strong> góc trên bên phải để nhập Key. Key sẽ được tự động <strong>lưu vào trình duyệt</strong> để bạn không phải nhập lại lần sau. Lấy Key tại <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline font-bold">Google AI Studio</a>.
                 </p>
             </div>
 
             <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 hover:border-emerald-500/30 transition-all shadow-sm">
                 <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">2</div>
-                <h3 className="font-bold text-slate-200 mb-2">Nhập liệu</h3>
+                <h3 className="font-bold text-slate-200 mb-2">Nhập liệu & Phân tích</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                    Upload script (.txt, .srt) hoặc dán văn bản. Tải lên <strong>Ảnh tham chiếu</strong> để AI nhúng phong cách vào prompt.
+                    Upload script hoặc dán văn bản. AI sẽ <strong>tự động phân tích</strong> bối cảnh, nhân vật, và thời gian từ nội dung kịch bản để tạo prompt chính xác nhất.
                 </p>
             </div>
 
             <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 hover:border-emerald-500/30 transition-all shadow-sm">
                 <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">3</div>
-                <h3 className="font-bold text-slate-200 mb-2">Phân tích & Tạo Prompt</h3>
+                <h3 className="font-bold text-slate-200 mb-2">Tạo Storyboard Pro</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                    Nhấn <strong>Tạo Storyboard Pro</strong>. AI sẽ phân tách script thành các phân cảnh và tạo prompt hình ảnh/video chi tiết.
+                    Nhấn nút tạo. AI sẽ phân tách script thành các phân cảnh và tạo prompt (hình ảnh/video) chi tiết, nhất quán về phong cách và nhân vật.
                 </p>
             </div>
 
@@ -328,7 +328,7 @@ const WelcomeGuide: FC = () => (
                 <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">4</div>
                 <h3 className="font-bold text-slate-200 mb-2">Xuất kết quả</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                    Tải file <strong>Excel</strong> chứa toàn bộ prompt để sử dụng cho các công cụ tạo ảnh/video chuyên dụng khác. Tải file <strong>TXT</strong> để đồng bộ.
+                    Tải file <strong>Excel</strong> chứa toàn bộ prompt để sử dụng cho các công cụ tạo ảnh/video chuyên dụng. Tải file <strong>TXT</strong> để đồng bộ.
                 </p>
             </div>
 
@@ -336,7 +336,7 @@ const WelcomeGuide: FC = () => (
                 <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">5</div>
                 <h3 className="font-bold text-slate-200 mb-2">Tạo ảnh hàng loạt</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                    Sử dụng tool <a href="https://github.com/duckmartians/G-Labs-Automation/releases/tag/v1.2.6" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">G-lab-Automation</a> hoặc <a href="https://chromewebstore.google.com/detail/auto-whisk-automator-for/gedfnhdibkfgacmkbjgpfjihacalnlpn" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">Auto Whisk Automator</a> với file Excel (bước 4) để tự động tạo ảnh từ prompt. <br/>Hoặc các bạn có thể sử dụng bất kỳ tool tạo ảnh nào đang dùng.
+                    Sử dụng tool <a href="https://github.com/duckmartians/G-Labs-Automation/releases/tag/v1.2.6" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">G-lab-Automation</a> hoặc <a href="https://chromewebstore.google.com/detail/auto-whisk-automator-for/gedfnhdibkfgacmkbjgpfjihacalnlpn" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">Auto Whisk Automator</a> với file Excel (bước 4) để tự động tạo ảnh từ prompt.
                 </p>
             </div>
 
@@ -401,6 +401,7 @@ const ApiSettingsModal: FC<{
                         />
                         <p className="text-xs text-slate-500 mt-2">
                             Lấy key miễn phí tại <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">Google AI Studio</a>.
+                            <br/><span className="text-emerald-500/80 italic mt-1 inline-block">* Key sẽ được lưu vào trình duyệt của bạn.</span>
                         </p>
                     </div>
 
@@ -455,25 +456,25 @@ const GuideModal: FC<{
                             <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">1</div>
                             <h3 className="font-bold text-slate-200 mb-2">Cấu hình API Key</h3>
                             <p className="text-xs text-slate-400 leading-relaxed">
-                            Bấm nút <strong>API</strong> góc trên bên phải để nhập Key. Tool mặc định chọn Gemini 3 Flash, nhưng bạn có thể chuyển sang Gemini 3 Pro nếu API key của bạn có. Lấy API Key miễn phí tại: <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline font-bold">Google AI Studio</a>.
+                            Bấm nút <strong>API</strong> góc trên bên phải để nhập Key. Key sẽ được tự động <strong>lưu vào trình duyệt</strong>. Lấy Key miễn phí tại: <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline font-bold">Google AI Studio</a>.
                             </p>
                         </div>
 
                         {/* Step 2 */}
                         <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 hover:border-emerald-500/30 transition-all shadow-sm">
                             <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">2</div>
-                            <h3 className="font-bold text-slate-200 mb-2">Nhập liệu</h3>
+                            <h3 className="font-bold text-slate-200 mb-2">Nhập liệu & Phân tích</h3>
                             <p className="text-xs text-slate-400 leading-relaxed">
-                                Upload script (.txt, .srt) hoặc dán văn bản. Tải lên <strong>Ảnh tham chiếu</strong> để AI nhúng phong cách vào prompt.
+                                Upload script hoặc dán văn bản. AI sẽ <strong>tự động phân tích</strong> bối cảnh, nhân vật từ nội dung để tạo prompt.
                             </p>
                         </div>
 
                         {/* Step 3 */}
                         <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 hover:border-emerald-500/30 transition-all shadow-sm">
                             <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">3</div>
-                            <h3 className="font-bold text-slate-200 mb-2">Phân tích & Tạo Prompt</h3>
+                            <h3 className="font-bold text-slate-200 mb-2">Tạo Storyboard Pro</h3>
                             <p className="text-xs text-slate-400 leading-relaxed">
-                                Nhấn <strong>Tạo Storyboard Pro</strong>. AI sẽ phân tách script thành các phân cảnh và tạo prompt hình ảnh/video chi tiết.
+                                Nhấn nút tạo. AI sẽ phân tách script thành các phân cảnh và tạo prompt chi tiết.
                             </p>
                         </div>
 
@@ -482,7 +483,7 @@ const GuideModal: FC<{
                             <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">4</div>
                             <h3 className="font-bold text-slate-200 mb-2">Xuất kết quả</h3>
                             <p className="text-xs text-slate-400 leading-relaxed">
-                                Tải file <strong>Excel</strong> chứa toàn bộ prompt để sử dụng cho các công cụ tạo ảnh/video chuyên dụng khác. Tải file <strong>TXT</strong> để đồng bộ.
+                                Tải file <strong>Excel</strong> chứa toàn bộ prompt. Tải file <strong>TXT</strong> để đồng bộ.
                             </p>
                         </div>
 
@@ -856,6 +857,20 @@ const App: FC = () => {
     }
   }, []);
 
+  // Load API Key from local storage on mount
+  useEffect(() => {
+    const storedKey = localStorage.getItem('sbgen_api_key');
+    if (storedKey) {
+        setApiKey(storedKey);
+    }
+  }, []);
+
+  // Save API Key helper
+  const handleSaveApiKey = (key: string) => {
+      setApiKey(key);
+      localStorage.setItem('sbgen_api_key', key);
+  };
+
   // Save sessions helper
   const saveSession = (newPrompts: ScenePrompt[], scriptName: string) => {
       const newSession: SavedSession = {
@@ -1035,7 +1050,7 @@ const App: FC = () => {
             isOpen={showApiModal} 
             onClose={() => setShowApiModal(false)}
             apiKey={apiKey}
-            setApiKey={setApiKey}
+            setApiKey={handleSaveApiKey}
             selectedModel={selectedModel}
             setSelectedModel={setSelectedModel}
         />
