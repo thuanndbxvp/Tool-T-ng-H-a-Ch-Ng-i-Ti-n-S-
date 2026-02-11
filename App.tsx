@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useCallback, FC, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
-import { analyzeScriptWithAI, standardizeScriptWithAI } from './services/geminiService';
+import { analyzeScriptWithAI } from './services/geminiService';
 
 // --- TYPES & CONSTANTS ---
 export interface ImageFile {
@@ -112,9 +112,8 @@ const formatDate = (timestamp: number) => {
 const exportToExcel = (prompts: ScenePrompt[], filenamePrefix: string = 'storyboard') => {
       if (prompts.length === 0) return;
       
-      const wsData = prompts.map(p => ({
-          'Cảnh': p.id,
-          'Giai đoạn': p.phase,
+      const wsData = prompts.map((p, index) => ({
+          'Cảnh': index + 1,
           'Nội dung Script': p.scriptLine,
           // Conditionally add prompt based on existence
           ...(p.imagePrompt ? { 'Prompt Hình ảnh': p.imagePrompt } : {}),
@@ -601,10 +600,6 @@ interface ControlPanelProps {
   onBuildPrompts: () => void;
   isBuilding: boolean;
   scriptFileName: string | null;
-  onStandardizeScript: () => void;
-  isStandardizing: boolean;
-  standardizedScript: string | null;
-  onDownloadStandardized: () => void;
   segmentationMode: 'ai' | 'punctuation' | 'fixed';
   setSegmentationMode: (mode: 'ai' | 'punctuation' | 'fixed') => void;
   hasPrompts: boolean;
@@ -618,7 +613,7 @@ interface ControlPanelProps {
 const ControlPanel: FC<ControlPanelProps> = ({ 
     mode, setMode, scenario, setScenario, referenceImages, 
     onImageUpload, onScriptUpload, onBuildPrompts, isBuilding, 
-    scriptFileName, onStandardizeScript, isStandardizing, standardizedScript, onDownloadStandardized,
+    scriptFileName, 
     segmentationMode, setSegmentationMode, hasPrompts,
     targetSceneCount, setTargetSceneCount,
     promptType, setPromptType,
@@ -748,31 +743,6 @@ const ControlPanel: FC<ControlPanelProps> = ({
 
           {/* COLUMN 2: Actions */}
           <div className="flex flex-col gap-6">
-            {/* Standardize Script Button */}
-            <div>
-                {!standardizedScript ? (
-                    <button
-                        onClick={onStandardizeScript}
-                        disabled={!scriptReady || isStandardizing}
-                        className="w-full py-2.5 px-4 rounded-md font-semibold text-sm transition-all flex items-center justify-center gap-2 bg-slate-800 text-emerald-400 hover:bg-slate-700 border border-slate-700 hover:border-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {isStandardizing ? <SpinnerIcon className="animate-spin h-4 w-4" /> : <SparklesIcon className="h-4 w-4" />}
-                        {isStandardizing ? 'Đang xử lý...' : 'Chuẩn hóa kịch bản'}
-                    </button>
-                ) : (
-                    <button
-                        onClick={onDownloadStandardized}
-                        className="w-full py-2.5 px-4 rounded-md font-bold text-sm transition-all flex items-center justify-center gap-2 bg-emerald-900/50 text-emerald-400 hover:bg-emerald-900 border border-emerald-500/50"
-                    >
-                        <DownloadIcon className="h-4 w-4" />
-                        Tải kịch bản đã chuẩn hóa
-                    </button>
-                )}
-                <p className="text-xs text-amber-300 mt-3 font-bold bg-amber-950/40 p-3 rounded-lg border border-amber-500/30 shadow-inner flex items-center justify-center gap-2 text-center">
-                    <SparklesIcon className="h-4 w-4 flex-shrink-0 animate-pulse" />
-                    Tự động làm sạch dấu câu, định dạng thừa để đọc AI tốt hơn.
-                </p>
-            </div>
 
             {/* Prompt Type Selector */}
              <div>
@@ -858,8 +828,6 @@ const App: FC = () => {
   const [referenceImages, setReferenceImages] = useState<ImageFile[]>([]);
   const [prompts, setPrompts] = useState<ScenePrompt[]>([]);
   const [isBuilding, setIsBuilding] = useState<boolean>(false);
-  const [isStandardizing, setIsStandardizing] = useState<boolean>(false);
-  const [standardizedScript, setStandardizedScript] = useState<string | null>(null);
   const [segmentationMode, setSegmentationMode] = useState<'ai' | 'punctuation' | 'fixed'>('ai');
   const [targetSceneCount, setTargetSceneCount] = useState<number>(10);
   const [promptType, setPromptType] = useState<PromptType>('image');
@@ -973,39 +941,6 @@ const App: FC = () => {
           addToast('success', 'Đã tải kịch bản', `Đã tải ${file.name}`);
       };
       reader.readAsText(file);
-  };
-
-  const handleStandardizeScript = async () => {
-      if (!scenario) return;
-      setIsStandardizing(true);
-      try {
-          // Priority: User Input > Env Var
-          const effectiveKey = apiKey || process.env.API_KEY || "";
-          if (!effectiveKey) {
-             addToast('error', 'Thiếu API Key', 'Vui lòng cấu hình API Key trong Cài đặt.');
-             setShowApiModal(true); // Open modal if missing
-             setIsStandardizing(false);
-             return;
-          }
-          const result = await standardizeScriptWithAI(scenario, effectiveKey, selectedModel);
-          setStandardizedScript(result);
-          addToast('success', 'Thành công', 'Kịch bản đã được chuẩn hóa.');
-      } catch (error: any) {
-          addToast('error', 'Lỗi', error.message);
-      } finally {
-          setIsStandardizing(false);
-      }
-  };
-
-  const handleDownloadStandardized = () => {
-      if (!standardizedScript) return;
-      const blob = new Blob([standardizedScript], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `standardized_script_${getTimestamp()}.txt`;
-      a.click();
-      URL.revokeObjectURL(url);
   };
 
   const handleBuildPrompts = async () => {
@@ -1168,10 +1103,6 @@ const App: FC = () => {
                         onBuildPrompts={handleBuildPrompts}
                         isBuilding={isBuilding}
                         scriptFileName={scriptFileName}
-                        onStandardizeScript={handleStandardizeScript}
-                        isStandardizing={isStandardizing}
-                        standardizedScript={standardizedScript}
-                        onDownloadStandardized={handleDownloadStandardized}
                         segmentationMode={segmentationMode}
                         setSegmentationMode={setSegmentationMode}
                         hasPrompts={prompts.length > 0}
