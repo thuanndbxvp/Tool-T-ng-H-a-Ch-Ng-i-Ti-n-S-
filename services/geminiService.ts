@@ -49,8 +49,10 @@ export const analyzeScriptWithAI = async (
     apiKey: string, 
     styleLock: string, 
     mode: string,
-    segmentationMode: 'ai' | 'punctuation',
-    modelName: string = "gemini-3-flash-preview"
+    segmentationMode: 'ai' | 'punctuation' | 'fixed',
+    modelName: string = "gemini-3-flash-preview",
+    targetSceneCount: number = 10,
+    promptType: 'image' | 'video' = 'image'
 ): Promise<any[]> => {
   if (!apiKey) throw new Error("Vui lòng cấu hình API Key Google.");
   
@@ -65,12 +67,39 @@ Do NOT simply split by sentences or punctuation. Use **Semantic Segmentation**.
 - **Rule 2 (Semantic Integrity)**: Do NOT cut in the middle of a thought or content just to meet the word count. Each segment must be a complete logical thought, phrase, or meaningful unit.
 - **Rule 3 (Fidelity)**: STRICTLY **do not add, remove, or translate ANY words** from the original script. The combined output of "scriptLine" fields must equal the input text exactly.
 - **Rule 4 (Format)**: Each segmented line corresponds to one item (one Scene) in the JSON output array.`;
-  } else {
+  } else if (segmentationMode === 'punctuation') {
       segmentationInstruction = `**TASK 2: SEGMENTATION (STRICT & CRITICAL - PUNCTUATION MODE)**
 Split the script strictly based on sentence-ending punctuation marks (., ?, !, ...).
 - **Rule 1 (Punctuation)**: Start a new segment after every sentence-ending punctuation mark. If a sentence is extremely long (>50 words), you may split at a major clause (comma/semicolon) to keep prompts manageable.
 - **Rule 2 (Fidelity)**: STRICTLY **do not add, remove, or translate ANY words** from the original script. The combined output of "scriptLine" fields must equal the input text exactly.
 - **Rule 3 (Format)**: Each segmented line corresponds to one item (one Scene) in the JSON output array.`;
+  } else if (segmentationMode === 'fixed') {
+      segmentationInstruction = `**TASK 2: SEGMENTATION (STRICT & CRITICAL - FIXED COUNT MODE)**
+Divide the entire script into EXACTLY ${targetSceneCount} scenes/segments.
+- **Rule 1 (Count)**: The output JSON array MUST contain exactly ${targetSceneCount} items. Plan the segmentation carefully to distribute the story evenly.
+- **Rule 2 (Flow)**: Group sentences logically to fit this count.
+- **Rule 3 (Fidelity)**: STRICTLY **do not add, remove, or translate ANY words** from the original script. The combined output of "scriptLine" fields must equal the input text exactly.`;
+  }
+
+  // Construct Prompt Type Instruction
+  let promptGenerationInstruction = "";
+  const commonStyleInjection = `   - **STYLE INJECTION**: Analyze the attached Reference Images (if any). Extract their art style (e.g., color palette, lighting key, texture, rendering style) and WRITE IT EXPLICITLY into the prompt description.
+   - **MANDATORY PREFIX**: Start exactly with: "${styleLock}"`;
+
+  if (promptType === 'image') {
+      promptGenerationInstruction = `3. "imagePrompt": A self-contained, highly detailed visual description for a static image, optimized for Google Nano Banana (Gemini Image Models).
+${commonStyleInjection}
+   - **NO PARAMETERS**: Do not use Midjourney parameters (like --v 6.0, --ar 16:9). Use natural, descriptive English only.
+   - **CHARACTER CONSISTENCY**: You MUST explicitly describe the characters' appearance in EVERY SINGLE PROMPT (Age, Hair, Clothing, key features).
+   - **VISUAL FIDELITY**: Focus on soft lighting, rich textures, and a clean composition suitable for the "Nano Banana" model (high adherence to prompt).
+   - **ACTION & MOOD**: Describe the scene action and atmosphere vividly.`;
+  } else {
+      promptGenerationInstruction = `3. "videoPrompt": A highly detailed video generation prompt optimized for Google Veo 3 (approx 8 seconds).
+${commonStyleInjection}
+   - **VISUAL NARRATIVE**: Describe the continuous motion, physics, and changes within the 8s clip.
+   - **CAMERA & CINEMATOGRAPHY**: Specify camera movement (e.g., "Slow tracking shot", "Drone view", "Static camera with subtle subject motion", "Rack focus").
+   - **CHARACTER & ACTION**: Describe fluid movements (e.g., "Walking slowly with a cane", "Turning head to look out window"). Ensure characters appearance is described fully.
+   - **ATMOSPHERE**: Describe how light interacts with motion (e.g., "Dust motes dancing in light", "Hair blowing in wind").`;
   }
   
   // Updated System Instruction
@@ -93,15 +122,7 @@ ${segmentationInstruction}
 For each segmented line (Scene), generate a JSON object with:
 1. "scriptLine": The exact segmented text line from the script based on the rules above.
 2. "phase": The narrative phase (e.g., "Introduction", "Climax").
-3. "imagePrompt": A self-contained, highly detailed visual description.
-   - **STYLE INJECTION**: Analyze the attached Reference Images (if any). Extract their art style (e.g., color palette, lighting key, texture, rendering style) and WRITE IT EXPLICITLY into the prompt description.
-   - **MANDATORY PREFIX**: Start exactly with: "${styleLock}"
-   - **CHARACTER BLOCK (REDUNDANT)**: You MUST explicitly describe the characters' appearance in EVERY SINGLE PROMPT. Do not assume the AI remembers from the previous prompt.
-     - *Bad*: "He hands her a cup."
-     - *Good*: "An elderly Japanese man (75, gray hair, reading glasses, sweater) hands a ceramic cup to an elderly Japanese woman (70, gray hair bun, apron)."
-   - **ACTION BLOCK**: Visualize the specific action in the sentence.
-   - **MOOD BLOCK**: Lighting (e.g., sunset, warm lamp) and atmosphere.
-4. "videoPrompt": Slow, cinematic camera movement instructions (e.g., "Slow push in", "Static shot with wind movement").
+${promptGenerationInstruction}
 
 OUTPUT ONLY A JSON ARRAY.`;
 
@@ -125,6 +146,21 @@ OUTPUT ONLY A JSON ARRAY.`;
   // 2. Add The Script
   parts.push({ text: script });
 
+  // Define Schema based on prompt type
+  const schemaProperties: any = {
+      scriptLine: { type: Type.STRING },
+      phase: { type: Type.STRING },
+  };
+  const requiredFields = ["scriptLine", "phase"];
+
+  if (promptType === 'image') {
+      schemaProperties.imagePrompt = { type: Type.STRING };
+      requiredFields.push("imagePrompt");
+  } else {
+      schemaProperties.videoPrompt = { type: Type.STRING };
+      requiredFields.push("videoPrompt");
+  }
+
   try {
     const response = await ai.models.generateContent({
       model: modelName, // Use selected model
@@ -136,13 +172,8 @@ OUTPUT ONLY A JSON ARRAY.`;
             type: Type.ARRAY,
             items: {
                 type: Type.OBJECT,
-                properties: {
-                    scriptLine: { type: Type.STRING },
-                    phase: { type: Type.STRING },
-                    imagePrompt: { type: Type.STRING },
-                    videoPrompt: { type: Type.STRING },
-                },
-                required: ["scriptLine", "phase", "imagePrompt", "videoPrompt"]
+                properties: schemaProperties,
+                required: requiredFields
             }
         }
       }

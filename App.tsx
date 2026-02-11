@@ -14,8 +14,8 @@ export interface ImageFile {
 interface ScenePrompt {
   id: number;
   phase: string;
-  imagePrompt: string;
-  videoPrompt: string;
+  imagePrompt?: string;
+  videoPrompt?: string;
   scriptLine: string;
 }
 
@@ -36,6 +36,7 @@ export interface SavedSession {
 
 // Thay đổi mode: Chỉ còn general
 type AppMode = 'general';
+type PromptType = 'image' | 'video';
 
 // Models
 const MODELS = [
@@ -52,11 +53,29 @@ interface ToastMessage {
     message: string;
 }
 
-// Style cho Kịch bản chung
-const GENERAL_STYLE = `Style: High quality, Cinematic, Detailed.
-Keywords: 8k resolution, highly detailed, professional composition, atmospheric lighting, sharp focus.
-Negative prompt: low quality, blurry, distorted, bad anatomy, watermark, text, signature.
-Instruction: Analyze the style of the provided reference images (if any) and apply it to this scene.`;
+// Style Presets (Translated to Vietnamese Labels)
+const PRESET_STYLES = [
+    { id: 'cinematic', label: '🎬 Điện ảnh thực tế (Cinematic)', prompt: 'Cinematic style, 8k resolution, highly detailed, professional composition, atmospheric lighting, sharp focus, photorealistic, raw style.' },
+    { id: 'anime', label: '🌸 Anime (Ghibli)', prompt: 'Anime style, Studio Ghibli inspired, vibrant colors, lush backgrounds, expressive characters, hand-drawn animation feel, detailed aesthetic.' },
+    { id: '3d_pixar', label: '🧸 Hoạt hình 3D (Pixar)', prompt: '3D Disney/Pixar style, cute characters, soft lighting, 3d render, high fidelity, octane render, smooth textures, expressive eyes.' },
+    { id: 'stick_figure', label: '🖍️ Người que (Stick Figure)', prompt: 'Stick figure style, simple line drawing, white background, childish and funny, minimal details, hand-drawn marker look.' },
+    { id: 'oil_painting', label: '🎨 Tranh sơn dầu', prompt: 'Oil painting style, textured brushstrokes, artistic, classic masterpiece vibe, rich colors, heavy impasto, traditional art.' },
+    { id: 'watercolor', label: '💧 Màu nước', prompt: 'Watercolor painting style, soft edges, pastel colors, artistic and dreamy, wet-on-wet technique, paper texture.' },
+    { id: 'cyberpunk', label: '🌃 Cyberpunk (Tương lai)', prompt: 'Cyberpunk style, neon lights, futuristic city, high tech low life, vibrant purple and blue tones, rain-slicked streets, holographic details.' },
+    { id: 'vintage_1950', label: '📺 Cổ điển 1950s', prompt: 'Vintage 1950s photo style, film grain, sepia or faded technicolor, retro fashion, old-school photography aesthetics, nostalgia.' },
+    { id: 'noir', label: '🕵️ Phim Noir (Trắng đen)', prompt: 'Film Noir style, black and white, high contrast, dramatic shadows, dutch angles, mystery, silhouette, classic cinema.' },
+    { id: 'pixel_art', label: '👾 Pixel Art (8-Bit)', prompt: '8-bit Pixel Art, retro game style, blocky, vibrant colors, nostalgic gaming aesthetic, clean sprites.' },
+    { id: 'claymation', label: '🧱 Đất sét (Claymation)', prompt: 'Claymation style, plasticine texture, stop motion look, Aardman inspired, fingerprint details on clay, handmade feel.' },
+    { id: 'comic_book', label: '💬 Truyện tranh (Comic)', prompt: 'Comic book style, bold outlines, halftone patterns, vibrant colors, action lines, graphic novel aesthetic.' },
+    { id: 'fantasy_art', label: '🐉 Giả tưởng Epic (Fantasy)', prompt: 'Fantasy art style, Dungeons & Dragons style, magical atmosphere, glowing effects, epic composition, highly detailed armor and environments.' },
+    { id: 'horror', label: '🧟 Kinh dị (Horror)', prompt: 'Horror style, dark atmosphere, mist, eerie lighting, scary vibes, muted colors, cinematic thriller look.' },
+    { id: 'pencil_sketch', label: '✏️ Phác thảo chì', prompt: 'Pencil sketch style, charcoal, rough lines, artistic shading, monochrome, sketchbook aesthetic.' },
+    { id: 'low_poly', label: '🔷 Low Poly (3D khối)', prompt: 'Low Poly 3D style, geometric shapes, flat shading, minimalist, vibrant colors, game art aesthetic.' },
+    { id: 'steampunk', label: '⚙️ Steampunk (Hơi nước)', prompt: 'Steampunk style, brass and copper tones, gears and clockwork, victorian sci-fi, steam power, industrial aesthetic.' },
+    { id: 'origami', label: '📄 Gấp giấy (Origami)', prompt: 'Paper cut-out style, origami, layered paper texture, depth of field, craft art, soft shadows.' },
+    { id: 'ukiyo_e', label: '🌊 Tranh khắc gỗ Nhật (Ukiyo-e)', prompt: 'Japanese Ukiyo-e woodblock print style, traditional patterns, flat perspective, sweeping lines, Hokusai inspired.' },
+    { id: 'abstract', label: '🌀 Trừu tượng siêu thực', prompt: 'Abstract surrealism, dreamlike, weird shapes, vibrant and contrasting colors, dali-esque, melting reality.' },
+];
 
 // Giới hạn ảnh tham chiếu tối đa là 3
 const MAX_REFERENCE_IMAGES = 3;
@@ -94,17 +113,18 @@ const exportToExcel = (prompts: ScenePrompt[], filenamePrefix: string = 'storybo
       if (prompts.length === 0) return;
       
       const wsData = prompts.map(p => ({
-          'Scene': p.id,
-          'Phase': p.phase,
-          'Script Line': p.scriptLine,
-          'Image Prompt': p.imagePrompt,
-          'Video Prompt': p.videoPrompt
+          'Cảnh': p.id,
+          'Giai đoạn': p.phase,
+          'Nội dung Script': p.scriptLine,
+          // Conditionally add prompt based on existence
+          ...(p.imagePrompt ? { 'Prompt Hình ảnh': p.imagePrompt } : {}),
+          ...(p.videoPrompt ? { 'Prompt Video': p.videoPrompt } : {})
       }));
       
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(wsData);
       
-      const wscols = Object.keys(wsData[0]).map(k => ({ wch: 20 }));
+      const wscols = Object.keys(wsData[0]).map(k => ({ wch: 30 }));
       ws['!cols'] = wscols;
       
       XLSX.utils.book_append_sheet(wb, ws, "Storyboard");
@@ -209,6 +229,30 @@ const BookOpenIcon: FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
+const VideoCameraIcon: FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
+  </svg>
+);
+
+const PhotoIcon: FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+  </svg>
+);
+
+const ChevronDownIcon: FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+  </svg>
+);
+
+const ChevronUpIcon: FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" />
+  </svg>
+);
+
 // --- CHILD COMPONENTS ---
 
 // TOAST COMPONENTS
@@ -277,7 +321,7 @@ const WelcomeGuide: FC = () => (
                 <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">3</div>
                 <h3 className="font-bold text-slate-200 mb-2">Phân tích & Tạo Prompt</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                    Nhấn <strong>Generate Pro Storyboard</strong>. AI sẽ phân tách script thành các phân cảnh và tạo prompt hình ảnh/video chi tiết.
+                    Nhấn <strong>Tạo Storyboard Pro</strong>. AI sẽ phân tách script thành các phân cảnh và tạo prompt hình ảnh/video chi tiết.
                 </p>
             </div>
 
@@ -430,7 +474,7 @@ const GuideModal: FC<{
                             <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">3</div>
                             <h3 className="font-bold text-slate-200 mb-2">Phân tích & Tạo Prompt</h3>
                             <p className="text-xs text-slate-400 leading-relaxed">
-                                Nhấn <strong>Generate Pro Storyboard</strong>. AI sẽ phân tách script thành các phân cảnh và tạo prompt hình ảnh/video chi tiết.
+                                Nhấn <strong>Tạo Storyboard Pro</strong>. AI sẽ phân tách script thành các phân cảnh và tạo prompt hình ảnh/video chi tiết.
                             </p>
                         </div>
 
@@ -561,19 +605,28 @@ interface ControlPanelProps {
   isStandardizing: boolean;
   standardizedScript: string | null;
   onDownloadStandardized: () => void;
-  segmentationMode: 'ai' | 'punctuation';
-  setSegmentationMode: (mode: 'ai' | 'punctuation') => void;
+  segmentationMode: 'ai' | 'punctuation' | 'fixed';
+  setSegmentationMode: (mode: 'ai' | 'punctuation' | 'fixed') => void;
   hasPrompts: boolean;
+  targetSceneCount: number;
+  setTargetSceneCount: (count: number) => void;
+  promptType: PromptType;
+  setPromptType: (type: PromptType) => void;
+  selectedStyleId: string;
+  setSelectedStyleId: (id: string) => void;
 }
 const ControlPanel: FC<ControlPanelProps> = ({ 
     mode, setMode, scenario, setScenario, referenceImages, 
     onImageUpload, onScriptUpload, onBuildPrompts, isBuilding, 
     scriptFileName, onStandardizeScript, isStandardizing, standardizedScript, onDownloadStandardized,
-    segmentationMode, setSegmentationMode, hasPrompts
+    segmentationMode, setSegmentationMode, hasPrompts,
+    targetSceneCount, setTargetSceneCount,
+    promptType, setPromptType,
+    selectedStyleId, setSelectedStyleId
 }) => {
   const charImgRef = useRef<HTMLInputElement>(null);
   const scriptFileRef = useRef<HTMLInputElement>(null);
-
+  
   const scriptReady = useMemo(() => scenario.trim() !== "" || scriptFileName !== null, [scenario, scriptFileName]);
 
   const canBuild = useMemo(() => {
@@ -588,37 +641,67 @@ const ControlPanel: FC<ControlPanelProps> = ({
       <div className="flex flex-col gap-6">
           {/* COLUMN 1: Inputs */}
           <div className="flex flex-col gap-6">
-            {/* Reference Images */}
-            <div className="animate-fade-in">
-                <label className="block text-sm font-medium text-slate-300 mb-2">📸 Ảnh tham chiếu phong cách (Tối đa {MAX_REFERENCE_IMAGES})</label>
-                <div 
-                    onClick={() => charImgRef.current?.click()}
-                    className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-600 border-dashed rounded-md cursor-pointer hover:border-emerald-500 transition-colors bg-slate-800/30"
-                >
-                    <div className="space-y-1 text-center">
-                    <UploadIcon className="mx-auto h-12 w-12 text-slate-400" />
-                    <p className="text-sm text-slate-400">Nhấn để tải file</p>
+            
+            {/* Style Selector */}
+            <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">🎭 Chọn Phong Cách Image/Video</label>
+                <div className="relative">
+                    <select
+                        value={selectedStyleId}
+                        onChange={(e) => setSelectedStyleId(e.target.value)}
+                        className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block p-2.5 appearance-none cursor-pointer"
+                    >
+                        <option value="reference">📸 Sử dụng ảnh tham chiếu (Mặc định)</option>
+                        {PRESET_STYLES.map(style => (
+                            <option key={style.id} value={style.id}>
+                                {style.label}
+                            </option>
+                        ))}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
+                        <ChevronDownIcon className="h-4 w-4" />
                     </div>
                 </div>
-                <input ref={charImgRef} type="file" accept="image/*" multiple onChange={onImageUpload} className="hidden" />
-                <p className="text-xs text-amber-300 mt-3 font-semibold bg-amber-900/30 p-2.5 rounded-lg border border-amber-500/30 shadow-sm flex items-center gap-2">
-                    <InformationCircleIcon className="h-4 w-4 flex-shrink-0" />
-                    AI sẽ phân tích các ảnh này để nhúng phong cách vào Prompt tạo ảnh.
-                </p>
-                {referenceImages.length > 0 && (
-                    <div className="mt-4 grid grid-cols-3 gap-2">
-                    {referenceImages.map((img) => (
-                        <div key={img.name} className="relative group">
-                            <img src={img.dataUrl} alt={img.name} className="rounded-md object-cover aspect-square border border-slate-700 shadow-sm" />
-                        </div>
-                    ))}
-                    </div>
+                {selectedStyleId !== 'reference' && (
+                     <p className="text-xs text-slate-500 mt-2 italic">
+                        * Khi chọn phong cách có sẵn, công cụ sẽ bỏ qua ảnh tham chiếu.
+                    </p>
                 )}
             </div>
 
+            {/* Reference Images (Visible ONLY if style is 'reference') */}
+            {selectedStyleId === 'reference' && (
+                <div className="animate-fade-in">
+                    <label className="block text-sm font-medium text-slate-300 mb-2">📸 Tải lên Ảnh tham chiếu (Tối đa {MAX_REFERENCE_IMAGES})</label>
+                    <div 
+                        onClick={() => charImgRef.current?.click()}
+                        className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-600 border-dashed rounded-md cursor-pointer hover:border-emerald-500 transition-colors bg-slate-800/30"
+                    >
+                        <div className="space-y-1 text-center">
+                        <UploadIcon className="mx-auto h-12 w-12 text-slate-400" />
+                        <p className="text-sm text-slate-400">Nhấn để tải file</p>
+                        </div>
+                    </div>
+                    <input ref={charImgRef} type="file" accept="image/*" multiple onChange={onImageUpload} className="hidden" />
+                    <p className="text-xs text-amber-300 mt-3 font-semibold bg-amber-900/30 p-2.5 rounded-lg border border-amber-500/30 shadow-sm flex items-center gap-2">
+                        <InformationCircleIcon className="h-4 w-4 flex-shrink-0" />
+                        AI sẽ phân tích các ảnh này để nhúng phong cách vào Prompt tạo ảnh.
+                    </p>
+                    {referenceImages.length > 0 && (
+                        <div className="mt-4 grid grid-cols-3 gap-2">
+                        {referenceImages.map((img) => (
+                            <div key={img.name} className="relative group">
+                                <img src={img.dataUrl} alt={img.name} className="rounded-md object-cover aspect-square border border-slate-700 shadow-sm" />
+                            </div>
+                        ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* Script Upload */}
             <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">📄 Upload Script (.txt, .srt)</label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">📄 Tải lên Kịch bản (.txt, .srt)</label>
                 <div 
                     onClick={() => scriptFileRef.current?.click()}
                     className="flex items-center gap-3 bg-slate-800 border border-slate-700 hover:border-emerald-500 p-3 rounded-md cursor-pointer transition-colors group"
@@ -640,7 +723,8 @@ const ControlPanel: FC<ControlPanelProps> = ({
                 rows={6}
                 className="w-full bg-slate-800 border border-slate-700 p-3 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-inner text-white text-sm"
                 ></textarea>
-                           </div>
+                <p className="text-[10px] text-slate-500 mt-1 italic font-semibold text-emerald-400/80">* Được hỗ trợ bởi Gemini 3 Pro Preview (Mô hình Tư duy)</p>
+            </div>
           </div>
 
           {/* COLUMN 2: Actions */}
@@ -671,6 +755,27 @@ const ControlPanel: FC<ControlPanelProps> = ({
                 </p>
             </div>
 
+            {/* Prompt Type Selector */}
+             <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">🎨 Loại Output</label>
+                <div className="flex gap-3 mb-4">
+                    <button
+                        onClick={() => setPromptType('image')}
+                        className={`flex-1 p-3 rounded-xl text-xs font-bold transition-all border shadow-lg flex flex-col items-center gap-1 ${promptType === 'image' ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:border-slate-500'}`}
+                    >
+                        <PhotoIcon className="h-5 w-5 mb-1" />
+                        <span>Ảnh (Nano Banana)</span>
+                    </button>
+                    <button
+                        onClick={() => setPromptType('video')}
+                        className={`flex-1 p-3 rounded-xl text-xs font-bold transition-all border shadow-lg flex flex-col items-center gap-1 ${promptType === 'video' ? 'bg-rose-600 border-rose-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:border-slate-500'}`}
+                    >
+                        <VideoCameraIcon className="h-5 w-5 mb-1" />
+                        <span>Video (Veo/Sora)</span>
+                    </button>
+                </div>
+            </div>
+
             {/* Segmentation Options & Generate Button Group */}
             <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">✂️ Phương pháp phân cảnh</label>
@@ -689,6 +794,26 @@ const ControlPanel: FC<ControlPanelProps> = ({
                         <span>📝 Dấu chấm câu</span>
                         <span className="font-medium opacity-70 text-[10px]">Theo câu hoàn chỉnh</span>
                     </button>
+                    <button
+                        onClick={() => setSegmentationMode('fixed')}
+                        className={`p-3 rounded-xl text-xs font-bold transition-all border shadow-lg flex flex-col items-center gap-1 ${segmentationMode === 'fixed' ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:border-slate-500'}`}
+                    >
+                        <span>🔢 Số cảnh cố định</span>
+                        <span className="font-medium opacity-70 text-[10px]">Chia theo số lượng</span>
+                    </button>
+
+                     <div className={`p-2 rounded-xl border flex flex-col justify-center items-center transition-all duration-300 ${segmentationMode === 'fixed' ? 'bg-slate-900 border-emerald-500/50 opacity-100' : 'bg-slate-900/50 border-slate-800 opacity-40 pointer-events-none'}`}>
+                        <label className="text-[10px] font-bold text-slate-400 mb-1 uppercase text-center">Số lượng cảnh</label>
+                        <input 
+                            type="number" 
+                            min="1" 
+                            max="50"
+                            value={targetSceneCount}
+                            onChange={(e) => setTargetSceneCount(Math.max(1, parseInt(e.target.value) || 10))}
+                            className="w-full bg-slate-800 border border-slate-700 p-1.5 rounded text-center text-white text-sm font-bold focus:ring-2 focus:ring-emerald-500 outline-none"
+                            disabled={segmentationMode !== 'fixed'}
+                        />
+                    </div>
                 </div>
 
                 <button
@@ -716,7 +841,10 @@ const App: FC = () => {
   const [isBuilding, setIsBuilding] = useState<boolean>(false);
   const [isStandardizing, setIsStandardizing] = useState<boolean>(false);
   const [standardizedScript, setStandardizedScript] = useState<string | null>(null);
-  const [segmentationMode, setSegmentationMode] = useState<'ai' | 'punctuation'>('ai');
+  const [segmentationMode, setSegmentationMode] = useState<'ai' | 'punctuation' | 'fixed'>('ai');
+  const [targetSceneCount, setTargetSceneCount] = useState<number>(10);
+  const [promptType, setPromptType] = useState<PromptType>('image');
+  const [selectedStyleId, setSelectedStyleId] = useState<string>('reference'); // Default to reference/default
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   
   // API & Settings State
@@ -874,23 +1002,46 @@ const App: FC = () => {
              return;
           }
           
-          const refImagesForService = referenceImages.map(img => ({ base64: img.base64, mimeType: img.mimeType }));
-          
+          let refImagesForService: { base64: string; mimeType: string }[] = [];
+          let activeStylePrompt = "";
+
+          // Logic for Style Selection vs Reference Images
+          if (selectedStyleId === 'reference') {
+             // If reference mode selected, pass the uploaded images
+             refImagesForService = referenceImages.map(img => ({ base64: img.base64, mimeType: img.mimeType }));
+             
+             if (refImagesForService.length > 0) {
+                 // Use specific instruction to follow image style
+                 activeStylePrompt = "Analyze the provided reference images and apply their exact art style, color palette, and lighting to the prompt.";
+             } else {
+                 // No images provided in reference mode -> Neutral/Content-based style
+                 activeStylePrompt = "Visual Style: Neutral, realistic, high quality. Visualize the scene based strictly on the script content.";
+             }
+          } else {
+             // A Preset is selected
+             // Force ignore reference images even if they exist in state
+             refImagesForService = []; 
+             const selectedStyleObj = PRESET_STYLES.find(s => s.id === selectedStyleId);
+             activeStylePrompt = selectedStyleObj ? selectedStyleObj.prompt : "";
+          }
+
           const results = await analyzeScriptWithAI(
               scenario,
               refImagesForService,
               effectiveKey,
-              GENERAL_STYLE,
+              activeStylePrompt, 
               mode,
               segmentationMode,
-              selectedModel
+              selectedModel,
+              targetSceneCount,
+              promptType
           );
           
           const newPrompts = results.map((item: any, index: number) => ({
               id: Date.now() + index,
               phase: item.phase,
-              imagePrompt: item.imagePrompt,
-              videoPrompt: item.videoPrompt,
+              imagePrompt: item.imagePrompt, // might be undefined if promptType=video
+              videoPrompt: item.videoPrompt, // might be undefined if promptType=image
               scriptLine: item.scriptLine
           }));
           
@@ -1005,6 +1156,12 @@ const App: FC = () => {
                         segmentationMode={segmentationMode}
                         setSegmentationMode={setSegmentationMode}
                         hasPrompts={prompts.length > 0}
+                        targetSceneCount={targetSceneCount}
+                        setTargetSceneCount={setTargetSceneCount}
+                        promptType={promptType}
+                        setPromptType={setPromptType}
+                        selectedStyleId={selectedStyleId}
+                        setSelectedStyleId={setSelectedStyleId}
                     />
                 </div>
 
@@ -1044,14 +1201,14 @@ const App: FC = () => {
                                         <div className="mb-4">
                                             <p className="text-slate-300 italic font-medium border-l-2 border-emerald-500/50 pl-3 py-1">"{scene.scriptLine}"</p>
                                         </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                        <div className="grid grid-cols-1 gap-4 text-sm">
                                             <div className="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50">
-                                                <p className="text-xs text-slate-500 font-bold mb-1 uppercase">Mô tả Hình ảnh</p>
-                                                <p className="text-slate-300 leading-relaxed text-xs">{scene.imagePrompt}</p>
-                                            </div>
-                                            <div className="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50">
-                                                <p className="text-xs text-slate-500 font-bold mb-1 uppercase">Mô tả Video</p>
-                                                <p className="text-slate-300 leading-relaxed text-xs">{scene.videoPrompt}</p>
+                                                <p className="text-xs text-slate-500 font-bold mb-1 uppercase">
+                                                    {scene.videoPrompt ? "Mô tả Video (Veo/Sora)" : "Mô tả Hình ảnh"}
+                                                </p>
+                                                <p className="text-slate-300 leading-relaxed text-xs">
+                                                    {scene.videoPrompt || scene.imagePrompt}
+                                                </p>
                                             </div>
                                         </div>
                                     </div>
