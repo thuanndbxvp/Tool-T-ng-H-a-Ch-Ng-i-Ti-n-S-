@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useCallback, FC, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
-import { analyzeScriptWithAI } from './services/geminiService';
+import { analyzeScriptWithAI, validateApiKey } from './services/geminiService';
 
 // --- TYPES & CONSTANTS ---
 export interface ImageFile {
@@ -19,12 +19,11 @@ interface ScenePrompt {
   scriptLine: string;
 }
 
-export interface ApiKey {
-    id: string;
-    provider: 'Google' | 'OpenAI';
+export interface ApiKeyData {
     key: string;
-    name: string;
     isActive: boolean;
+    status: 'valid' | 'invalid' | 'unknown';
+    lastUsed?: number;
 }
 
 export interface SavedSession {
@@ -37,11 +36,12 @@ export interface SavedSession {
 // Thay đổi mode: Chỉ còn general
 type AppMode = 'general';
 type PromptType = 'image' | 'video';
+type AspectRatio = '16:9' | '9:16' | '1:1';
 
 // Models
 const MODELS = [
-    { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro (Tư duy phức tạp)', recommended: false },
-    { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash (Nhanh & Tiết kiệm)', recommended: true },
+    { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash (Nhanh & Ổn định - Khuyên dùng)', recommended: true },
+    { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro (Tư duy phức tạp - Dễ bị giới hạn)', recommended: false },
 ];
 
 // Toast Types
@@ -304,7 +304,7 @@ const WelcomeGuide: FC = () => (
                 <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">1</div>
                 <h3 className="font-bold text-slate-200 mb-2">Cấu hình API Key</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                   Bấm nút <strong>API</strong> góc trên bên phải để nhập Key. Key sẽ được tự động <strong>lưu vào trình duyệt</strong> để bạn không phải nhập lại lần sau. Lấy Key tại <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline font-bold">Google AI Studio</a>.
+                   Bấm nút <strong>API</strong> góc trên bên phải để nhập Key. Bạn có thể nhập <strong>nhiều Key</strong> để hệ thống tự động luân phiên (Rotation), tránh lỗi 429 Too Many Requests.
                 </p>
             </div>
 
@@ -371,37 +371,110 @@ const WelcomeGuide: FC = () => (
 const ApiSettingsModal: FC<{
     isOpen: boolean;
     onClose: () => void;
-    apiKey: string;
-    setApiKey: (key: string) => void;
+    apiKeys: ApiKeyData[];
+    setApiKeys: (keys: ApiKeyData[]) => void;
     selectedModel: string;
     setSelectedModel: (model: string) => void;
-}> = ({ isOpen, onClose, apiKey, setApiKey, selectedModel, setSelectedModel }) => {
+}> = ({ isOpen, onClose, apiKeys, setApiKeys, selectedModel, setSelectedModel }) => {
+    const [newKey, setNewKey] = useState('');
+    const [isValidating, setIsValidating] = useState(false);
+
     if (!isOpen) return null;
+
+    const handleAddKey = async () => {
+        if (!newKey.trim()) return;
+        if (apiKeys.some(k => k.key === newKey.trim())) {
+             alert('Key này đã tồn tại!');
+             return;
+        }
+
+        setIsValidating(true);
+        const isValid = await validateApiKey(newKey.trim());
+        setIsValidating(false);
+
+        const newKeyData: ApiKeyData = {
+            key: newKey.trim(),
+            isActive: true,
+            status: isValid ? 'valid' : 'invalid',
+        };
+
+        const updatedKeys = [...apiKeys, newKeyData];
+        setApiKeys(updatedKeys);
+        localStorage.setItem('sbgen_api_keys', JSON.stringify(updatedKeys));
+        setNewKey('');
+    };
+
+    const handleDeleteKey = (keyToDelete: string) => {
+        const updatedKeys = apiKeys.filter(k => k.key !== keyToDelete);
+        setApiKeys(updatedKeys);
+        localStorage.setItem('sbgen_api_keys', JSON.stringify(updatedKeys));
+    };
+
+    const toggleActiveKey = (keyToToggle: string) => {
+        const updatedKeys = apiKeys.map(k => k.key === keyToToggle ? { ...k, isActive: !k.isActive } : k);
+        setApiKeys(updatedKeys);
+        localStorage.setItem('sbgen_api_keys', JSON.stringify(updatedKeys));
+    };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6 shadow-2xl relative">
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg p-6 shadow-2xl relative">
                 <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white">
                     <XMarkIcon className="h-6 w-6" />
                 </button>
                 <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
                     <KeyIcon className="h-6 w-6 text-emerald-400" />
-                    Cài đặt API & Model
+                    Quản lý API Key & Model
                 </h3>
                 
                 <div className="space-y-6">
                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Gemini API Key</label>
-                        <input
-                            type="password"
-                            value={apiKey}
-                            onChange={(e) => setApiKey(e.target.value)}
-                            placeholder="Nhập API Key của bạn"
-                            className="w-full bg-slate-800 border border-slate-700 p-3 rounded-md focus:ring-2 focus:ring-emerald-500 text-white text-sm"
-                        />
+                        <label className="block text-sm font-medium text-slate-300 mb-2">Quản lý API Key</label>
+                        <div className="flex gap-2 mb-4">
+                            <input
+                                type="password"
+                                value={newKey}
+                                onChange={(e) => setNewKey(e.target.value)}
+                                placeholder="Nhập API Key mới"
+                                className="flex-1 bg-slate-800 border border-slate-700 p-2.5 rounded-md focus:ring-2 focus:ring-emerald-500 text-white text-sm"
+                            />
+                            <button 
+                                onClick={handleAddKey}
+                                disabled={isValidating || !newKey}
+                                className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-md text-sm font-bold disabled:opacity-50 min-w-[100px]"
+                            >
+                                {isValidating ? 'Kiểm tra...' : 'Thêm'}
+                            </button>
+                        </div>
+
+                        <div className="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar bg-slate-950/50 p-2 rounded-lg border border-slate-800">
+                            {apiKeys.length === 0 && <p className="text-xs text-slate-500 text-center py-4">Chưa có key nào. Vui lòng thêm key.</p>}
+                            {apiKeys.map((k, idx) => (
+                                <div key={idx} className="flex items-center justify-between bg-slate-800 p-2 rounded border border-slate-700">
+                                    <div className="flex items-center gap-2 overflow-hidden">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={k.isActive} 
+                                            onChange={() => toggleActiveKey(k.key)}
+                                            className="h-4 w-4 rounded border-slate-600 text-emerald-600 focus:ring-emerald-600 bg-slate-700"
+                                        />
+                                        <div className="flex flex-col">
+                                            <span className="text-xs font-mono text-slate-300 truncate w-32 md:w-48">
+                                                {k.key.substring(0, 8)}...{k.key.substring(k.key.length - 6)}
+                                            </span>
+                                            <span className={`text-[10px] uppercase font-bold ${k.status === 'valid' ? 'text-emerald-400' : 'text-red-400'}`}>
+                                                {k.status === 'valid' ? 'Hoạt động' : 'Không hợp lệ'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <button onClick={() => handleDeleteKey(k.key)} className="text-slate-500 hover:text-red-400 p-1">
+                                        <TrashIcon className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
                         <p className="text-xs text-slate-500 mt-2">
-                            Lấy key miễn phí tại <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">Google AI Studio</a>.
-                            <br/><span className="text-emerald-500/80 italic mt-1 inline-block">* Key sẽ được lưu vào trình duyệt của bạn.</span>
+                           * Hệ thống sẽ tự động sử dụng ngẫu nhiên các key đang hoạt động để tránh giới hạn.
                         </p>
                     </div>
 
@@ -419,12 +492,15 @@ const ApiSettingsModal: FC<{
                                 </button>
                             ))}
                         </div>
+                        <p className="text-xs text-amber-500/80 mt-2 italic">
+                            * Lưu ý: Gemini 3 Pro Preview có giới hạn Request thấp, dễ bị lỗi 429 nếu dùng 1 key.
+                        </p>
                     </div>
                 </div>
 
                 <div className="mt-8 flex justify-end">
                     <button onClick={onClose} className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-lg font-bold text-sm transition-colors">
-                        Hoàn tất
+                        Đóng
                     </button>
                 </div>
             </div>
@@ -610,6 +686,8 @@ interface ControlPanelProps {
   setPromptType: (type: PromptType) => void;
   selectedStyleId: string;
   setSelectedStyleId: (id: string) => void;
+  aspectRatio: AspectRatio;
+  setAspectRatio: (ratio: AspectRatio) => void;
 }
 const ControlPanel: FC<ControlPanelProps> = ({ 
     mode, setMode, scenario, setScenario, referenceImages, 
@@ -618,7 +696,8 @@ const ControlPanel: FC<ControlPanelProps> = ({
     segmentationMode, setSegmentationMode, hasPrompts,
     targetSceneCount, setTargetSceneCount,
     promptType, setPromptType,
-    selectedStyleId, setSelectedStyleId
+    selectedStyleId, setSelectedStyleId,
+    aspectRatio, setAspectRatio
 }) => {
   const charImgRef = useRef<HTMLInputElement>(null);
   const scriptFileRef = useRef<HTMLInputElement>(null);
@@ -738,17 +817,17 @@ const ControlPanel: FC<ControlPanelProps> = ({
                 rows={6}
                 className="w-full bg-slate-800 border border-slate-700 p-3 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-inner text-white text-sm"
                 ></textarea>
-                <p className="text-[10px] text-slate-500 mt-1 italic font-semibold text-emerald-400/80">* Được hỗ trợ bởi Gemini 3 Pro Preview (Mô hình Tư duy)</p>
+                <p className="text-[10px] text-slate-500 mt-1 italic font-semibold text-emerald-400/80">* Được hỗ trợ bởi Gemini 3 Flash Preview (Tối ưu tốc độ)</p>
             </div>
           </div>
 
           {/* COLUMN 2: Actions */}
           <div className="flex flex-col gap-6">
 
-            {/* Prompt Type Selector */}
+            {/* Prompt Type & Aspect Ratio Selector */}
              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">🎨 Loại Output</label>
-                <div className="flex gap-3 mb-4">
+                <label className="block text-sm font-medium text-slate-300 mb-2">🎨 Loại Output & Tỷ lệ</label>
+                <div className="flex gap-3 mb-3">
                     <button
                         onClick={() => setPromptType('image')}
                         className={`flex-1 p-3 rounded-xl text-xs font-bold transition-all border shadow-lg flex flex-col items-center gap-1 ${promptType === 'image' ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:border-slate-500'}`}
@@ -762,6 +841,28 @@ const ControlPanel: FC<ControlPanelProps> = ({
                     >
                         <VideoCameraIcon className="h-5 w-5 mb-1" />
                         <span>Video (Veo/Sora)</span>
+                    </button>
+                </div>
+                
+                {/* Aspect Ratio Buttons */}
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => setAspectRatio('16:9')}
+                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all border ${aspectRatio === '16:9' ? 'bg-slate-700 border-emerald-500 text-emerald-400 shadow-sm' : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'}`}
+                    >
+                        16:9 (Ngang)
+                    </button>
+                     <button
+                        onClick={() => setAspectRatio('9:16')}
+                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all border ${aspectRatio === '9:16' ? 'bg-slate-700 border-emerald-500 text-emerald-400 shadow-sm' : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'}`}
+                    >
+                        9:16 (Dọc)
+                    </button>
+                     <button
+                        onClick={() => setAspectRatio('1:1')}
+                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all border ${aspectRatio === '1:1' ? 'bg-slate-700 border-emerald-500 text-emerald-400 shadow-sm' : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'}`}
+                    >
+                        1:1 (Vuông)
                     </button>
                 </div>
             </div>
@@ -832,11 +933,13 @@ const App: FC = () => {
   const [segmentationMode, setSegmentationMode] = useState<'ai' | 'punctuation' | 'fixed'>('ai');
   const [targetSceneCount, setTargetSceneCount] = useState<number>(10);
   const [promptType, setPromptType] = useState<PromptType>('image');
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9');
   const [selectedStyleId, setSelectedStyleId] = useState<string>('reference'); // Default to reference/default
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   
   // API & Settings State
-  const [apiKey, setApiKey] = useState<string>('');
+  const [apiKeys, setApiKeys] = useState<ApiKeyData[]>([]);
+  const [apiKey, setApiKey] = useState<string>(''); // Deprecated logic mostly, kept for legacy if needed or simple single key
   const [selectedModel, setSelectedModel] = useState<string>('gemini-3-flash-preview');
   const [showApiModal, setShowApiModal] = useState(false);
   
@@ -857,19 +960,24 @@ const App: FC = () => {
     }
   }, []);
 
-  // Load API Key from local storage on mount
+  // Load API Keys from local storage on mount
   useEffect(() => {
-    const storedKey = localStorage.getItem('sbgen_api_key');
-    if (storedKey) {
-        setApiKey(storedKey);
+    // Check old key
+    const oldKey = localStorage.getItem('sbgen_api_key');
+    const storedKeysStr = localStorage.getItem('sbgen_api_keys');
+    
+    let keys: ApiKeyData[] = [];
+    if (storedKeysStr) {
+        try {
+            keys = JSON.parse(storedKeysStr);
+        } catch (e) { console.error(e); }
+    } else if (oldKey) {
+        // Migrate old key to new structure
+        keys = [{ key: oldKey, isActive: true, status: 'unknown' }];
+        localStorage.setItem('sbgen_api_keys', JSON.stringify(keys));
     }
+    setApiKeys(keys);
   }, []);
-
-  // Save API Key helper
-  const handleSaveApiKey = (key: string) => {
-      setApiKey(key);
-      localStorage.setItem('sbgen_api_key', key);
-  };
 
   // Save sessions helper
   const saveSession = (newPrompts: ScenePrompt[], scriptName: string) => {
@@ -962,14 +1070,25 @@ const App: FC = () => {
       if (!scenario) return;
       setIsBuilding(true);
       try {
-           // Priority: User Input > Env Var
-           const effectiveKey = apiKey || process.env.API_KEY || "";
-           if (!effectiveKey) {
-             addToast('error', 'Thiếu API Key', 'Vui lòng cấu hình API Key trong Cài đặt.');
-             setShowApiModal(true);
-             setIsBuilding(false);
-             return;
-          }
+           // Get active keys
+           const activeKeys = apiKeys.filter(k => k.isActive);
+           let effectiveKey = "";
+           
+           if (activeKeys.length === 0) {
+                // Fallback to process.env or error
+                if (process.env.API_KEY) {
+                    effectiveKey = process.env.API_KEY;
+                } else {
+                    addToast('error', 'Thiếu API Key', 'Vui lòng thêm ít nhất 1 API Key đang hoạt động trong Cài đặt.');
+                    setShowApiModal(true);
+                    setIsBuilding(false);
+                    return;
+                }
+           } else {
+               // Rotation Strategy: Random for now (simple load balancing)
+               const randomIndex = Math.floor(Math.random() * activeKeys.length);
+               effectiveKey = activeKeys[randomIndex].key;
+           }
           
           let refImagesForService: { base64: string; mimeType: string }[] = [];
           let activeStylePrompt = "";
@@ -1003,7 +1122,8 @@ const App: FC = () => {
               segmentationMode,
               selectedModel,
               targetSceneCount,
-              promptType
+              promptType,
+              aspectRatio
           );
           
           const newPrompts = results.map((item: any, index: number) => ({
@@ -1049,8 +1169,8 @@ const App: FC = () => {
         <ApiSettingsModal 
             isOpen={showApiModal} 
             onClose={() => setShowApiModal(false)}
-            apiKey={apiKey}
-            setApiKey={handleSaveApiKey}
+            apiKeys={apiKeys}
+            setApiKeys={setApiKeys}
             selectedModel={selectedModel}
             setSelectedModel={setSelectedModel}
         />
@@ -1127,6 +1247,8 @@ const App: FC = () => {
                         setPromptType={setPromptType}
                         selectedStyleId={selectedStyleId}
                         setSelectedStyleId={setSelectedStyleId}
+                        aspectRatio={aspectRatio}
+                        setAspectRatio={setAspectRatio}
                     />
                 </div>
 

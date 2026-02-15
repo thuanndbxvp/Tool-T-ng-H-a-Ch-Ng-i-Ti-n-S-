@@ -1,6 +1,21 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
+export const validateApiKey = async (apiKey: string): Promise<boolean> => {
+    try {
+        const ai = new GoogleGenAI({ apiKey });
+        // Gọi một request siêu nhẹ để test key
+        await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: 'ping',
+        });
+        return true;
+    } catch (error) {
+        console.error("Key Validation Failed:", error);
+        return false;
+    }
+};
+
 export const standardizeScriptWithAI = async (script: string, apiKey: string, modelName: string = "gemini-3-flash-preview"): Promise<string> => {
   if (!apiKey) throw new Error("Vui lòng cấu hình API Key Google.");
 
@@ -52,7 +67,8 @@ export const analyzeScriptWithAI = async (
     segmentationMode: 'ai' | 'punctuation' | 'fixed',
     modelName: string = "gemini-3-flash-preview",
     targetSceneCount: number = 10,
-    promptType: 'image' | 'video' = 'image'
+    promptType: 'image' | 'video' = 'image',
+    aspectRatio: string = '16:9'
 ): Promise<any[]> => {
   if (!apiKey) throw new Error("Vui lòng cấu hình API Key Google.");
   
@@ -90,12 +106,18 @@ Divide the entire script into EXACTLY ${targetSceneCount} scenes/segments.
       promptGenerationInstruction = `3. "imagePrompt": A self-contained, highly detailed visual description for a static image, optimized for Google Nano Banana (Gemini Image Models).
 ${commonStyleInjection}
    - **NO PARAMETERS**: Do not use Midjourney parameters (like --v 6.0, --ar 16:9). Use natural, descriptive English only.
+   - **ASPECT RATIO**: Output MUST include the aspect ratio parameter "--ar ${aspectRatio}" at the very end of the prompt.
    - **CHARACTER CONSISTENCY**: Analyze the script to identify the main characters. Describe their appearance consistently in EVERY SINGLE PROMPT (Age, Gender, Ethnicity, Hair, Clothing, key features) based on the script's context.
    - **VISUAL FIDELITY**: Focus on soft lighting, rich textures, and a clean composition suitable for the "Nano Banana" model (high adherence to prompt).
    - **ACTION & MOOD**: Describe the scene action and atmosphere vividly based on the script context.`;
   } else {
+      let videoRatioDesc = "Widescreen cinematic";
+      if (aspectRatio === '9:16') videoRatioDesc = "Vertical full-screen mobile";
+      if (aspectRatio === '1:1') videoRatioDesc = "Square format";
+
       promptGenerationInstruction = `3. "videoPrompt": A highly detailed video generation prompt optimized for Google Veo 3 (approx 8 seconds).
 ${commonStyleInjection}
+   - **ASPECT RATIO & FRAMING**: Composition must be ${videoRatioDesc} (${aspectRatio}). Frame the subject accordingly.
    - **VISUAL NARRATIVE**: Describe the continuous motion, physics, and changes within the 8s clip.
    - **CAMERA & CINEMATOGRAPHY**: Specify camera movement (e.g., "Slow tracking shot", "Drone view", "Static camera with subtle subject motion", "Rack focus").
    - **CHARACTER & ACTION**: Describe fluid movements based on the script. Ensure characters appearance is described fully and consistently with the script's era/setting.
@@ -180,6 +202,6 @@ OUTPUT ONLY A JSON ARRAY.`;
     return JSON.parse(text.trim());
   } catch (error) {
     console.error("AI Analysis Error:", error);
-    throw new Error(`Không thể phân tích kịch bản với ${modelName}. Vui lòng kiểm tra API Key.`);
+    throw new Error(`Không thể phân tích kịch bản với ${modelName}. Lỗi: ${error.message || error}`);
   }
 };

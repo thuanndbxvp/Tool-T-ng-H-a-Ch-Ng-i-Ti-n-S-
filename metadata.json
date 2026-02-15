@@ -1,5 +1,5 @@
 {
-  "name": "Tool Tự Động Hóa Phân cảnh",
+  "name": "Tool Tự Động Hóa Phân cảnh Fx",
   "description": "An advanced tool to generate detailed image and video prompts for creating prehistoric ASMR cinematic documentaries. Features character-locking with reference images, scenario-based prompt generation, and direct image creation with the Gemini API.",
   "requestFramePermissions": []
 }
