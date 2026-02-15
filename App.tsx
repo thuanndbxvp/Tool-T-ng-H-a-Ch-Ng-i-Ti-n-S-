@@ -304,7 +304,7 @@ const WelcomeGuide: FC = () => (
                 <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">1</div>
                 <h3 className="font-bold text-slate-200 mb-2">Cấu hình API Key</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                   Bấm nút <strong>API</strong> góc trên bên phải để nhập Key. Bạn có thể nhập <strong>nhiều Key</strong> để hệ thống tự động luân phiên (Rotation), tránh lỗi 429 Too Many Requests.
+                   Bấm nút <strong>API</strong> góc trên bên phải để nhập Key. Bạn có thể nhập <strong>nhiều Key</strong> để hệ thống tự động luân phiên, tránh lỗi 429. Lấy Key tại <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline font-bold">Google AI Studio</a>.
                 </p>
             </div>
 
@@ -532,7 +532,7 @@ const GuideModal: FC<{
                             <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">1</div>
                             <h3 className="font-bold text-slate-200 mb-2">Cấu hình API Key</h3>
                             <p className="text-xs text-slate-400 leading-relaxed">
-                            Bấm nút <strong>API</strong> góc trên bên phải để nhập Key. Key sẽ được tự động <strong>lưu vào trình duyệt</strong>. Lấy Key miễn phí tại: <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline font-bold">Google AI Studio</a>.
+                            Bấm nút <strong>API</strong> góc trên bên phải để nhập Key. Bạn có thể nhập <strong>nhiều Key</strong> để hệ thống tự động luân phiên, tránh lỗi 429. Lấy Key miễn phí tại: <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline font-bold">Google AI Studio</a>.
                             </p>
                         </div>
 
