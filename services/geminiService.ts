@@ -90,11 +90,21 @@ Split the script strictly based on sentence-ending punctuation marks (., ?, !, .
 - **Rule 2 (Fidelity)**: STRICTLY **do not add, remove, or translate ANY words** from the original script. The combined output of "scriptLine" fields must equal the input text exactly.
 - **Rule 3 (Format)**: Each segmented line corresponds to one item (one Scene) in the JSON output array.`;
   } else if (segmentationMode === 'fixed') {
+      const tolerance = targetSceneCount > 50 ? "±5%" : "exact";
       segmentationInstruction = `**TASK 2: SEGMENTATION (STRICT & CRITICAL - FIXED COUNT MODE)**
-Divide the entire script into EXACTLY ${targetSceneCount} scenes/segments.
-- **Rule 1 (Count)**: The output JSON array MUST contain exactly ${targetSceneCount} items. Plan the segmentation carefully to distribute the story evenly.
-- **Rule 2 (Flow)**: Group sentences logically to fit this count.
-- **Rule 3 (Fidelity)**: STRICTLY **do not add, remove, or translate ANY words** from the original script. The combined output of "scriptLine" fields must equal the input text exactly.`;
+Target Scene Count: **${targetSceneCount}** (Tolerance: ${tolerance}).
+
+STRATEGY TO ACHIEVE TARGET:
+1. **Analyze Density**: First, estimate the total content of the script. Calculate roughly how much text should be in each scene to reach ${targetSceneCount} scenes.
+   - *Strategy*: If the script is long and the target count is high, you MUST split frequently (e.g., every sentence or even every major clause). Do not group sentences unless necessary.
+   - *Strategy*: If the script is short and the target is low, group sentences together.
+2. **Distribute Evenly**: Do not bunch up segments at the beginning. Maintain a consistent pacing throughout to reach the end of the script exactly around scene #${targetSceneCount}.
+3. **Semantic Priority**: While aiming for the target count, NEVER break a sentence in a way that destroys meaning. It is better to be off by a few scenes (within 5%) than to have broken gibberish.
+4. **Count Check**: Continuously track your scene count as you generate.
+
+- **Rule 1 (Target)**: Aim for exactly ${targetSceneCount} items in the JSON array. For large counts (>100), a deviation of ±5% is acceptable to preserve semantic integrity.
+- **Rule 2 (Fidelity)**: STRICTLY **do not add, remove, or translate ANY words** from the original script.
+- **Rule 3 (Format)**: Each segmented line corresponds to one item (one Scene).`;
   }
 
   // Construct Prompt Type Instruction
