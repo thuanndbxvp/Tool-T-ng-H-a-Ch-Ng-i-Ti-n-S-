@@ -81,14 +81,16 @@ export const analyzeScriptWithAI = async (
 Do NOT simply split by sentences or punctuation. Use **Semantic Segmentation**.
 - **Rule 1 (Length)**: Break the script into short segments/lines of approximately **7-15 words**. This is optimized for visual pacing.
 - **Rule 2 (Semantic Integrity)**: Do NOT cut in the middle of a thought or content just to meet the word count. Each segment must be a complete logical thought, phrase, or meaningful unit.
-- **Rule 3 (Fidelity)**: STRICTLY **do not add, remove, or translate ANY words** from the original script. The combined output of "scriptLine" fields must equal the input text exactly.
-- **Rule 4 (Format)**: Each segmented line corresponds to one item (one Scene) in the JSON output array.`;
+- **Rule 3 (Fidelity - VERBATIM COPY)**: You act as a text splitter, NOT an editor. You MUST preserve the original text exactly character-for-character within the segments. **DO NOT SUMMARIZE. DO NOT PARAPHRASE. DO NOT SKIP SENTENCES.**
+- **Rule 4 (Completeness)**: The concatenation of all "scriptLine" values MUST be identical to the input script.
+- **Rule 5 (Format)**: Each segmented line corresponds to one item (one Scene) in the JSON output array.`;
   } else if (segmentationMode === 'punctuation') {
       segmentationInstruction = `**TASK 2: SEGMENTATION (STRICT & CRITICAL - PUNCTUATION MODE)**
 Split the script strictly based on sentence-ending punctuation marks (., ?, !, ...).
 - **Rule 1 (Punctuation)**: Start a new segment after every sentence-ending punctuation mark. If a sentence is extremely long (>50 words), you may split at a major clause (comma/semicolon) to keep prompts manageable.
-- **Rule 2 (Fidelity)**: STRICTLY **do not add, remove, or translate ANY words** from the original script. The combined output of "scriptLine" fields must equal the input text exactly.
-- **Rule 3 (Format)**: Each segmented line corresponds to one item (one Scene) in the JSON output array.`;
+- **Rule 2 (Fidelity - VERBATIM COPY)**: You act as a text splitter, NOT an editor. You MUST preserve the original text exactly character-for-character within the segments. **DO NOT SUMMARIZE. DO NOT PARAPHRASE. DO NOT SKIP SENTENCES.**
+- **Rule 3 (Completeness)**: The concatenation of all "scriptLine" values MUST be identical to the input script.
+- **Rule 4 (Format)**: Each segmented line corresponds to one item (one Scene) in the JSON output array.`;
   } else if (segmentationMode === 'fixed') {
       const tolerance = targetSceneCount > 50 ? "±5%" : "exact";
       segmentationInstruction = `**TASK 2: SEGMENTATION (STRICT & CRITICAL - FIXED COUNT MODE)**
@@ -103,14 +105,15 @@ STRATEGY TO ACHIEVE TARGET:
 4. **Count Check**: Continuously track your scene count as you generate.
 
 - **Rule 1 (Target)**: Aim for exactly ${targetSceneCount} items in the JSON array. For large counts (>100), a deviation of ±5% is acceptable to preserve semantic integrity.
-- **Rule 2 (Fidelity)**: STRICTLY **do not add, remove, or translate ANY words** from the original script.
-- **Rule 3 (Format)**: Each segmented line corresponds to one item (one Scene).`;
+- **Rule 2 (Fidelity - VERBATIM COPY)**: You act as a text splitter, NOT an editor. You MUST preserve the original text exactly character-for-character within the segments. **DO NOT SUMMARIZE. DO NOT PARAPHRASE. DO NOT SKIP SENTENCES.**
+- **Rule 3 (Completeness)**: The concatenation of all "scriptLine" values MUST be identical to the input script.
+- **Rule 4 (Format)**: Each segmented line corresponds to one item (one Scene).`;
   }
 
   // Construct Prompt Type Instruction
   let promptGenerationInstruction = "";
   const commonStyleInjection = `   - **STYLE INJECTION**: Analyze the attached Reference Images (if any). Extract their art style (e.g., color palette, lighting key, texture, rendering style) and WRITE IT EXPLICITLY into the prompt description.
-   - **MANDATORY PREFIX**: Start exactly with: "${styleLock}"`;
+    - **MANDATORY PREFIX**: Start exactly with: "${styleLock}"`;
 
   if (promptType === 'image') {
       promptGenerationInstruction = `3. "imagePrompt": A self-contained, highly detailed visual description for a static image, optimized for Google Nano Banana (Gemini Image Models).
@@ -136,6 +139,9 @@ ${commonStyleInjection}
   
   // Updated System Instruction - REMOVED HARDCODED BIAS
   const systemInstruction = `You are a professional storyboard artist and script analyst. 
+
+**CORE DIRECTIVE: FULL CONTENT PRESERVATION**
+Your highest priority is to preserve the input script content exactly. Do not summarize, shorten, or rewrite the script text in the "scriptLine" field.
 
 **TASK 1: CONTEXT & LOGIC ANALYSIS (CRITICAL)**
 - **Analyze the Script**: Determine the setting, time period, atmosphere, and characters based STRICTLY on the provided text.
