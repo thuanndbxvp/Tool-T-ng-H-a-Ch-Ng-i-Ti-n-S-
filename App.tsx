@@ -1075,14 +1075,11 @@ const App: FC = () => {
            let effectiveKey = "";
            
            if (activeKeys.length === 0) {
-                // Fallback to process.env or error
+                // Fallback to process.env or empty string (service will use fallback key)
                 if (process.env.API_KEY) {
                     effectiveKey = process.env.API_KEY;
                 } else {
-                    addToast('error', 'Thiếu API Key', 'Vui lòng thêm ít nhất 1 API Key đang hoạt động trong Cài đặt.');
-                    setShowApiModal(true);
-                    setIsBuilding(false);
-                    return;
+                    effectiveKey = "";
                 }
            } else {
                // Rotation Strategy: Random for now (simple load balancing)

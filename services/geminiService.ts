@@ -1,6 +1,8 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
+const FALLBACK_API_KEY = "AIzaSyCmCqigOIuKn3EPb-qAOGEx5wiEtZU0etw";
+
 export const validateApiKey = async (apiKey: string): Promise<boolean> => {
     try {
         const ai = new GoogleGenAI({ apiKey });
@@ -17,10 +19,6 @@ export const validateApiKey = async (apiKey: string): Promise<boolean> => {
 };
 
 export const standardizeScriptWithAI = async (script: string, apiKey: string, modelName: string = "gemini-3-flash-preview"): Promise<string> => {
-  if (!apiKey) throw new Error("Vui lòng cấu hình API Key Google.");
-
-  const ai = new GoogleGenAI({ apiKey });
-
   // System Instruction được cập nhật để đảm bảo tính toàn vẹn nội dung
   const systemInstruction = `You are a strict text cleaning engine.
 Your GOAL: Remove non-spoken formatting and metadata without changing a single spoken word.
@@ -38,20 +36,31 @@ STRICT RULES:
 
 Output ONLY the cleaned text.`;
 
-  try {
+  const attemptGeneration = async (keyToUse: string) => {
+    const ai = new GoogleGenAI({ apiKey: keyToUse });
     const response = await ai.models.generateContent({
-      model: modelName, // Use selected model
+      model: modelName,
       contents: script,
       config: {
         systemInstruction,
-        // No JSON schema here, we want raw text/srt output
       }
     });
-
     const text = response.text;
     if (!text) throw new Error("AI không phản hồi.");
-    
     return text.trim();
+  };
+
+  try {
+    if (apiKey) {
+      try {
+        return await attemptGeneration(apiKey);
+      } catch (error) {
+        console.warn("User API key failed, falling back to default key...", error);
+        return await attemptGeneration(FALLBACK_API_KEY);
+      }
+    } else {
+      return await attemptGeneration(FALLBACK_API_KEY);
+    }
   } catch (error) {
     console.error("Standardize Script Error:", error);
     throw new Error("Không thể chuẩn hóa kịch bản. Vui lòng thử lại.");
@@ -70,10 +79,6 @@ export const analyzeScriptWithAI = async (
     promptType: 'image' | 'video' = 'image',
     aspectRatio: string = '16:9'
 ): Promise<any[]> => {
-  if (!apiKey) throw new Error("Vui lòng cấu hình API Key Google.");
-  
-  const ai = new GoogleGenAI({ apiKey });
-  
   // Construct Segmentation Instruction based on mode
   let segmentationInstruction = "";
   if (segmentationMode === 'ai') {
@@ -194,7 +199,8 @@ OUTPUT ONLY A JSON ARRAY.`;
       requiredFields.push("videoPrompt");
   }
 
-  try {
+  const attemptGeneration = async (keyToUse: string) => {
+    const ai = new GoogleGenAI({ apiKey: keyToUse });
     const response = await ai.models.generateContent({
       model: modelName, // Use selected model
       contents: { parts }, // Send both images and text
@@ -216,7 +222,20 @@ OUTPUT ONLY A JSON ARRAY.`;
     if (!text) throw new Error("AI không phản hồi kịch bản.");
     
     return JSON.parse(text.trim());
-  } catch (error) {
+  };
+
+  try {
+    if (apiKey) {
+      try {
+        return await attemptGeneration(apiKey);
+      } catch (error) {
+        console.warn("User API key failed, falling back to default key...", error);
+        return await attemptGeneration(FALLBACK_API_KEY);
+      }
+    } else {
+      return await attemptGeneration(FALLBACK_API_KEY);
+    }
+  } catch (error: any) {
     console.error("AI Analysis Error:", error);
     throw new Error(`Không thể phân tích kịch bản với ${modelName}. Lỗi: ${error.message || error}`);
   }
