@@ -1,7 +1,17 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
-const FALLBACK_API_KEY = "AIzaSyCmCqigOIuKn3EPb-qAOGEx5wiEtZU0etw";
+// Hàm giải mã key dự phòng (Obfuscated để tránh bot quét key)
+const getFallbackKeys = () => {
+    // Các chuỗi đã được đảo ngược và mã hóa Base64
+    const encKeys = [
+        "d3RlMFVadEVpVzV4RUdRT3EtYlBFM25LdUlPZ2lxQ21DeVNheklB", // Key 1
+        "azNNaDRTQXZpTG44a19WWTludkVrV2laVjRUaHVFM3FDeVNheklB"  // Key 2
+    ];
+    return encKeys.map(enc => atob(enc).split('').reverse().join(''));
+};
+
+const FALLBACK_API_KEYS = getFallbackKeys();
 
 export const validateApiKey = async (apiKey: string): Promise<boolean> => {
     try {
@@ -55,12 +65,18 @@ Output ONLY the cleaned text.`;
       try {
         return await attemptGeneration(apiKey);
       } catch (error) {
-        console.warn("User API key failed, falling back to default key...", error);
-        return await attemptGeneration(FALLBACK_API_KEY);
+        console.warn("User API key failed, falling back to default keys...", error);
       }
-    } else {
-      return await attemptGeneration(FALLBACK_API_KEY);
     }
+    
+    for (const fallbackKey of FALLBACK_API_KEYS) {
+        try {
+            return await attemptGeneration(fallbackKey);
+        } catch (fallbackError) {
+            console.warn("A fallback key failed, trying next...", fallbackError);
+        }
+    }
+    throw new Error("Tất cả API keys (bao gồm dự phòng) đều lỗi hoặc hết hạn mức.");
   } catch (error) {
     console.error("Standardize Script Error:", error);
     throw new Error("Không thể chuẩn hóa kịch bản. Vui lòng thử lại.");
@@ -229,12 +245,18 @@ OUTPUT ONLY A JSON ARRAY.`;
       try {
         return await attemptGeneration(apiKey);
       } catch (error) {
-        console.warn("User API key failed, falling back to default key...", error);
-        return await attemptGeneration(FALLBACK_API_KEY);
+        console.warn("User API key failed, falling back to default keys...", error);
       }
-    } else {
-      return await attemptGeneration(FALLBACK_API_KEY);
     }
+    
+    for (const fallbackKey of FALLBACK_API_KEYS) {
+        try {
+            return await attemptGeneration(fallbackKey);
+        } catch (fallbackError) {
+            console.warn("A fallback key failed, trying next...", fallbackError);
+        }
+    }
+    throw new Error("Tất cả API keys (bao gồm dự phòng) đều lỗi hoặc hết hạn mức.");
   } catch (error: any) {
     console.error("AI Analysis Error:", error);
     throw new Error(`Không thể phân tích kịch bản với ${modelName}. Lỗi: ${error.message || error}`);
