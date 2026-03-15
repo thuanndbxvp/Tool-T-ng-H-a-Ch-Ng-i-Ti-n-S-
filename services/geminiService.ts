@@ -83,6 +83,73 @@ Output ONLY the cleaned text.`;
   }
 };
 
+const adjustSceneCount = (scenes: any[], targetCount: number): any[] => {
+    if (!scenes || scenes.length === 0) return scenes;
+    let currentScenes = [...scenes];
+
+    // Merge if too many
+    while (currentScenes.length > targetCount) {
+        let minLength = Infinity;
+        let mergeIndex = 0;
+        for (let i = 0; i < currentScenes.length - 1; i++) {
+            const len = (currentScenes[i].scriptLine || "").length + (currentScenes[i+1].scriptLine || "").length;
+            if (len < minLength) {
+                minLength = len;
+                mergeIndex = i;
+            }
+        }
+        
+        const mergedScene = {
+            ...currentScenes[mergeIndex],
+            scriptLine: (currentScenes[mergeIndex].scriptLine || "").trim() + " " + (currentScenes[mergeIndex+1].scriptLine || "").trim()
+        };
+        currentScenes.splice(mergeIndex, 2, mergedScene);
+    }
+
+    // Split if too few
+    while (currentScenes.length < targetCount) {
+        let maxLength = -1;
+        let splitIndex = 0;
+        for (let i = 0; i < currentScenes.length; i++) {
+            const len = (currentScenes[i].scriptLine || "").length;
+            if (len > maxLength) {
+                maxLength = len;
+                splitIndex = i;
+            }
+        }
+        
+        const sceneToSplit = currentScenes[splitIndex];
+        const text = sceneToSplit.scriptLine || "";
+        
+        let splitPos = Math.floor(text.length / 2);
+        let leftSpace = text.lastIndexOf(" ", splitPos);
+        let rightSpace = text.indexOf(" ", splitPos);
+        
+        if (leftSpace !== -1 && rightSpace !== -1) {
+            splitPos = (splitPos - leftSpace) < (rightSpace - splitPos) ? leftSpace : rightSpace;
+        } else if (leftSpace !== -1) {
+            splitPos = leftSpace;
+        } else if (rightSpace !== -1) {
+            splitPos = rightSpace;
+        }
+        
+        if (splitPos <= 0 || splitPos >= text.length) {
+            // Cannot split safely, break to avoid infinite loop
+            break;
+        }
+
+        const part1 = text.substring(0, splitPos).trim();
+        const part2 = text.substring(splitPos).trim();
+
+        const scene1 = { ...sceneToSplit, scriptLine: part1 + " " };
+        const scene2 = { ...sceneToSplit, scriptLine: part2 };
+
+        currentScenes.splice(splitIndex, 1, scene1, scene2);
+    }
+
+    return currentScenes;
+};
+
 export const analyzeScriptWithAI = async (
     script: string,
     referenceImages: { base64: string; mimeType: string }[],
@@ -93,7 +160,8 @@ export const analyzeScriptWithAI = async (
     modelName: string = "gemini-3-flash-preview",
     targetSceneCount: number = 10,
     promptType: 'image' | 'video' = 'image',
-    aspectRatio: string = '16:9'
+    aspectRatio: string = '16:9',
+    enableAspectRatio: boolean = false
 ): Promise<any[]> => {
   // Construct Segmentation Instruction based on mode
   let segmentationInstruction = "";
@@ -128,7 +196,8 @@ STRATEGY TO ACHIEVE TARGET:
 - **Rule 1 (Target)**: Aim for exactly ${targetSceneCount} items in the JSON array. For large counts (>100), a deviation of ±5% is acceptable to preserve semantic integrity.
 - **Rule 2 (Fidelity - VERBATIM COPY)**: You act as a text splitter, NOT an editor. You MUST preserve the original text exactly character-for-character within the segments. **DO NOT SUMMARIZE. DO NOT PARAPHRASE. DO NOT SKIP SENTENCES.**
 - **Rule 3 (Completeness)**: The concatenation of all "scriptLine" values MUST be identical to the input script.
-- **Rule 4 (Format)**: Each segmented line corresponds to one item (one Scene).`;
+- **Rule 4 (Format)**: Each segmented line corresponds to one item (one Scene).
+- **Rule 5 (1-to-1 Mapping)**: You MUST generate EXACTLY ONE image/video prompt for EACH scene. The final output MUST contain exactly ${targetSceneCount} scenes, and therefore exactly ${targetSceneCount} prompts.`;
   }
 
   // Construct Prompt Type Instruction
@@ -137,10 +206,10 @@ STRATEGY TO ACHIEVE TARGET:
     - **MANDATORY PREFIX**: Start exactly with: "${styleLock}"`;
 
   if (promptType === 'image') {
+      const aspectRatioInstruction = enableAspectRatio ? `\n   - **ASPECT RATIO**: Output MUST include the aspect ratio parameter "--ar ${aspectRatio}" at the very end of the prompt.` : "";
       promptGenerationInstruction = `3. "imagePrompt": A self-contained, highly detailed visual description for a static image, optimized for Google Nano Banana (Gemini Image Models).
 ${commonStyleInjection}
-   - **NO PARAMETERS**: Do not use Midjourney parameters (like --v 6.0, --ar 16:9). Use natural, descriptive English only.
-   - **ASPECT RATIO**: Output MUST include the aspect ratio parameter "--ar ${aspectRatio}" at the very end of the prompt.
+   - **NO PARAMETERS**: Do not use Midjourney parameters (like --v 6.0, --ar 16:9). Use natural, descriptive English only.${aspectRatioInstruction}
    - **CHARACTER CONSISTENCY**: Analyze the script to identify the main characters. Describe their appearance consistently in EVERY SINGLE PROMPT (Age, Gender, Ethnicity, Hair, Clothing, key features) based on the script's context.
    - **VISUAL FIDELITY**: Focus on soft lighting, rich textures, and a clean composition suitable for the "Nano Banana" model (high adherence to prompt).
    - **ACTION & MOOD**: Describe the scene action and atmosphere vividly based on the script context.`;
@@ -148,10 +217,11 @@ ${commonStyleInjection}
       let videoRatioDesc = "Widescreen cinematic";
       if (aspectRatio === '9:16') videoRatioDesc = "Vertical full-screen mobile";
       if (aspectRatio === '1:1') videoRatioDesc = "Square format";
+      
+      const aspectRatioInstruction = enableAspectRatio ? `\n   - **ASPECT RATIO & FRAMING**: Composition must be ${videoRatioDesc} (${aspectRatio}). Frame the subject accordingly.` : "";
 
       promptGenerationInstruction = `3. "videoPrompt": A highly detailed video generation prompt optimized for Google Veo 3 (approx 8 seconds).
-${commonStyleInjection}
-   - **ASPECT RATIO & FRAMING**: Composition must be ${videoRatioDesc} (${aspectRatio}). Frame the subject accordingly.
+${commonStyleInjection}${aspectRatioInstruction}
    - **VISUAL NARRATIVE**: Describe the continuous motion, physics, and changes within the 8s clip.
    - **CAMERA & CINEMATOGRAPHY**: Specify camera movement (e.g., "Slow tracking shot", "Drone view", "Static camera with subtle subject motion", "Rack focus").
    - **CHARACTER & ACTION**: Describe fluid movements based on the script. Ensure characters appearance is described fully and consistently with the script's era/setting.
@@ -240,23 +310,38 @@ OUTPUT ONLY A JSON ARRAY.`;
     return JSON.parse(text.trim());
   };
 
+  let finalScenes: any[] | null = null;
+
   try {
     if (apiKey) {
       try {
-        return await attemptGeneration(apiKey);
+        finalScenes = await attemptGeneration(apiKey);
       } catch (error) {
         console.warn("User API key failed, falling back to default keys...", error);
       }
     }
     
-    for (const fallbackKey of FALLBACK_API_KEYS) {
-        try {
-            return await attemptGeneration(fallbackKey);
-        } catch (fallbackError) {
-            console.warn("A fallback key failed, trying next...", fallbackError);
+    if (!finalScenes) {
+        for (const fallbackKey of FALLBACK_API_KEYS) {
+            try {
+                finalScenes = await attemptGeneration(fallbackKey);
+                break;
+            } catch (fallbackError) {
+                console.warn("A fallback key failed, trying next...", fallbackError);
+            }
         }
     }
-    throw new Error("Tất cả API keys (bao gồm dự phòng) đều lỗi hoặc hết hạn mức.");
+    
+    if (!finalScenes) {
+        throw new Error("Tất cả API keys (bao gồm dự phòng) đều lỗi hoặc hết hạn mức.");
+    }
+
+    // Post-processing to strictly enforce fixed scene count
+    if (segmentationMode === 'fixed' && finalScenes.length !== targetSceneCount) {
+        finalScenes = adjustSceneCount(finalScenes, targetSceneCount);
+    }
+
+    return finalScenes;
   } catch (error: any) {
     console.error("AI Analysis Error:", error);
     throw new Error(`Không thể phân tích kịch bản với ${modelName}. Lỗi: ${error.message || error}`);

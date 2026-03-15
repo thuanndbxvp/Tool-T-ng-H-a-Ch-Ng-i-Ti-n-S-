@@ -75,6 +75,7 @@ const PRESET_STYLES = [
     { id: 'origami', label: '📄 Gấp giấy (Origami)', prompt: 'Paper cut-out style, origami, layered paper texture, depth of field, craft art, soft shadows.' },
     { id: 'ukiyo_e', label: '🌊 Tranh khắc gỗ Nhật (Ukiyo-e)', prompt: 'Japanese Ukiyo-e woodblock print style, traditional patterns, flat perspective, sweeping lines, Hokusai inspired.' },
     { id: 'abstract', label: '🌀 Trừu tượng siêu thực', prompt: 'Abstract surrealism, dreamlike, weird shapes, vibrant and contrasting colors, dali-esque, melting reality.' },
+    { id: 'vector_art', label: '📐 Vector Art (Đồ họa phẳng)', prompt: 'Vector art style, flat design, clean lines, bold colors, minimalist, corporate illustration style, smooth gradients, scalable vector graphics aesthetic.' },
 ];
 
 // Giới hạn ảnh tham chiếu tối đa là 3
@@ -688,6 +689,8 @@ interface ControlPanelProps {
   setSelectedStyleId: (id: string) => void;
   aspectRatio: AspectRatio;
   setAspectRatio: (ratio: AspectRatio) => void;
+  enableAspectRatio: boolean;
+  setEnableAspectRatio: (enable: boolean) => void;
 }
 const ControlPanel: FC<ControlPanelProps> = ({ 
     mode, setMode, scenario, setScenario, referenceImages, 
@@ -697,7 +700,8 @@ const ControlPanel: FC<ControlPanelProps> = ({
     targetSceneCount, setTargetSceneCount,
     promptType, setPromptType,
     selectedStyleId, setSelectedStyleId,
-    aspectRatio, setAspectRatio
+    aspectRatio, setAspectRatio,
+    enableAspectRatio, setEnableAspectRatio
 }) => {
   const charImgRef = useRef<HTMLInputElement>(null);
   const scriptFileRef = useRef<HTMLInputElement>(null);
@@ -845,7 +849,19 @@ const ControlPanel: FC<ControlPanelProps> = ({
                 </div>
                 
                 {/* Aspect Ratio Buttons */}
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2 mb-2">
+                    <input 
+                        type="checkbox" 
+                        id="enableAspectRatio" 
+                        checked={enableAspectRatio}
+                        onChange={(e) => setEnableAspectRatio(e.target.checked)}
+                        className="w-4 h-4 text-emerald-500 bg-slate-800 border-slate-600 rounded focus:ring-emerald-500 focus:ring-2"
+                    />
+                    <label htmlFor="enableAspectRatio" className="text-sm font-medium text-slate-300 cursor-pointer">
+                        Chỉ định khuôn hình
+                    </label>
+                </div>
+                <div className={`flex gap-2 transition-opacity duration-300 ${enableAspectRatio ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
                     <button
                         onClick={() => setAspectRatio('16:9')}
                         className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all border ${aspectRatio === '16:9' ? 'bg-slate-700 border-emerald-500 text-emerald-400 shadow-sm' : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'}`}
@@ -930,10 +946,11 @@ const App: FC = () => {
   const [referenceImages, setReferenceImages] = useState<ImageFile[]>([]);
   const [prompts, setPrompts] = useState<ScenePrompt[]>([]);
   const [isBuilding, setIsBuilding] = useState<boolean>(false);
-  const [segmentationMode, setSegmentationMode] = useState<'ai' | 'punctuation' | 'fixed'>('ai');
+  const [segmentationMode, setSegmentationMode] = useState<'ai' | 'punctuation' | 'fixed'>('fixed');
   const [targetSceneCount, setTargetSceneCount] = useState<number>(10);
   const [promptType, setPromptType] = useState<PromptType>('image');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9');
+  const [enableAspectRatio, setEnableAspectRatio] = useState<boolean>(false);
   const [selectedStyleId, setSelectedStyleId] = useState<string>('reference'); // Default to reference/default
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   
@@ -1120,7 +1137,8 @@ const App: FC = () => {
               selectedModel,
               targetSceneCount,
               promptType,
-              aspectRatio
+              aspectRatio,
+              enableAspectRatio
           );
           
           const newPrompts = results.map((item: any, index: number) => ({
@@ -1246,6 +1264,8 @@ const App: FC = () => {
                         setSelectedStyleId={setSelectedStyleId}
                         aspectRatio={aspectRatio}
                         setAspectRatio={setAspectRatio}
+                        enableAspectRatio={enableAspectRatio}
+                        setEnableAspectRatio={setEnableAspectRatio}
                     />
                 </div>
 
