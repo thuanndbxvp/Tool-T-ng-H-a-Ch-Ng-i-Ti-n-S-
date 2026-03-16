@@ -751,8 +751,13 @@ const ControlPanel: FC<ControlPanelProps> = ({
 
             {/* Reference Images (Visible ONLY if style is 'reference') */}
             {selectedStyleId === 'reference' && (
-                <div className="animate-fade-in border border-slate-700 rounded-xl overflow-hidden">
-                    <button 
+                <div className="space-y-2 animate-fade-in">
+                    <p className="text-xs text-amber-400 font-medium italic flex items-center gap-1">
+                        <InformationCircleIcon className="h-4 w-4" />
+                        Tool chỉ tham chiếu phong cách, không tham chiếu khuôn mặt/vóc dáng nhân vật
+                    </p>
+                    <div className="border border-slate-700 rounded-xl overflow-hidden">
+                        <button 
                         onClick={() => setIsRefImagesExpanded(!isRefImagesExpanded)}
                         className="w-full flex items-center justify-between p-4 bg-slate-800/50 hover:bg-slate-800 transition-colors"
                     >
@@ -794,6 +799,7 @@ const ControlPanel: FC<ControlPanelProps> = ({
                             )}
                         </div>
                     )}
+                </div>
                 </div>
             )}
 
@@ -889,7 +895,7 @@ const ControlPanel: FC<ControlPanelProps> = ({
                 <div className="grid grid-cols-2 gap-3 mb-4">
                     <button
                         onClick={() => setSegmentationMode('ai')}
-                        className={`p-3 rounded-xl text-xs font-bold transition-all border shadow-lg flex flex-col items-center gap-1 ${segmentationMode === 'ai' ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:border-slate-500'}`}
+                        className={`hidden p-3 rounded-xl text-xs font-bold transition-all border shadow-lg flex-col items-center gap-1 ${segmentationMode === 'ai' ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:border-slate-500'}`}
                     >
                         <span>🤖 AI Tự động</span>
                         <span className="font-medium opacity-70 text-[10px]">7-15 từ/cảnh</span>
@@ -909,7 +915,7 @@ const ControlPanel: FC<ControlPanelProps> = ({
                         <span className="font-medium opacity-70 text-[10px]">Chia theo số lượng</span>
                     </button>
 
-                     <div className={`p-2 rounded-xl border flex flex-col justify-center items-center transition-all duration-300 ${segmentationMode === 'fixed' ? 'bg-slate-900 border-emerald-500/50 opacity-100' : 'bg-slate-900/50 border-slate-800 opacity-40 pointer-events-none'}`}>
+                     <div className={`col-span-2 p-2 rounded-xl border flex flex-col justify-center items-center transition-all duration-300 ${segmentationMode === 'fixed' ? 'bg-slate-900 border-emerald-500/50 opacity-100' : 'bg-slate-900/50 border-slate-800 opacity-40 pointer-events-none'}`}>
                         <label className="text-[10px] font-bold text-slate-400 mb-1 uppercase text-center">Số lượng cảnh</label>
                         <input 
                             type="number" 
