@@ -76,6 +76,7 @@ const PRESET_STYLES = [
     { id: 'ukiyo_e', label: '🌊 Tranh khắc gỗ Nhật (Ukiyo-e)', prompt: 'Japanese Ukiyo-e woodblock print style, traditional patterns, flat perspective, sweeping lines, Hokusai inspired.' },
     { id: 'abstract', label: '🌀 Trừu tượng siêu thực', prompt: 'Abstract surrealism, dreamlike, weird shapes, vibrant and contrasting colors, dali-esque, melting reality.' },
     { id: 'vector_art', label: '📐 Vector Art (Đồ họa phẳng)', prompt: 'Vector art style, flat design, clean lines, bold colors, minimalist, corporate illustration style, smooth gradients, scalable vector graphics aesthetic.' },
+    { id: 'sitcom_cartoon', label: '📺 Sitcom Cartoon (2D)', prompt: 'American 2D sitcom cartoon style, thick black outline, flat colors, clean vector, simple and recognizable character design, slightly goofy but expressive facial expressions.' },
 ];
 
 // Giới hạn ảnh tham chiếu tối đa là 3
