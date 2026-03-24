@@ -41,6 +41,8 @@ type AspectRatio = '16:9' | '9:16' | '1:1';
 // Models
 const MODELS = [
     { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash (Nhanh & Ổn định - Khuyên dùng)', recommended: true },
+    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Tiết kiệm token)', recommended: false },
+    { id: 'gemini-flash-latest', name: 'Gemini Flash Latest (Bản ổn định nhất)', recommended: false },
     { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro (Tư duy phức tạp - Dễ bị giới hạn)', recommended: false },
 ];
 
@@ -391,7 +393,7 @@ const ApiSettingsModal: FC<{
         }
 
         setIsValidating(true);
-        const isValid = await validateApiKey(newKey.trim());
+        const isValid = await validateApiKey(newKey.trim(), selectedModel);
         setIsValidating(false);
 
         const newKeyData: ApiKeyData = {
@@ -692,6 +694,7 @@ interface ControlPanelProps {
   setAspectRatio: (ratio: AspectRatio) => void;
   enableAspectRatio: boolean;
   setEnableAspectRatio: (enable: boolean) => void;
+  selectedModel: string;
 }
 const ControlPanel: FC<ControlPanelProps> = ({ 
     mode, setMode, scenario, setScenario, referenceImages, 
@@ -702,7 +705,8 @@ const ControlPanel: FC<ControlPanelProps> = ({
     promptType, setPromptType,
     selectedStyleId, setSelectedStyleId,
     aspectRatio, setAspectRatio,
-    enableAspectRatio, setEnableAspectRatio
+    enableAspectRatio, setEnableAspectRatio,
+    selectedModel
 }) => {
   const charImgRef = useRef<HTMLInputElement>(null);
   const scriptFileRef = useRef<HTMLInputElement>(null);
@@ -828,7 +832,7 @@ const ControlPanel: FC<ControlPanelProps> = ({
                 rows={6}
                 className="w-full bg-slate-800 border border-slate-700 p-3 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-inner text-white text-sm"
                 ></textarea>
-                <p className="text-[10px] text-slate-500 mt-1 italic font-semibold text-emerald-400/80">* Được hỗ trợ bởi Gemini 3 Flash Preview (Tối ưu tốc độ)</p>
+                <p className="text-[10px] text-slate-500 mt-1 italic font-semibold text-emerald-400/80">* Được hỗ trợ bởi {MODELS.find(m => m.id === selectedModel)?.name || 'Gemini'}</p>
             </div>
           </div>
 
@@ -1273,6 +1277,7 @@ const App: FC = () => {
                         setAspectRatio={setAspectRatio}
                         enableAspectRatio={enableAspectRatio}
                         setEnableAspectRatio={setEnableAspectRatio}
+                        selectedModel={selectedModel}
                     />
                 </div>
 

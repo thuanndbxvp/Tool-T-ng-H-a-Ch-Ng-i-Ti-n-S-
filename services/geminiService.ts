@@ -13,12 +13,12 @@ const getFallbackKeys = () => {
 
 const FALLBACK_API_KEYS = getFallbackKeys();
 
-export const validateApiKey = async (apiKey: string): Promise<boolean> => {
+export const validateApiKey = async (apiKey: string, modelName: string = 'gemini-3-flash-preview'): Promise<boolean> => {
     try {
         const ai = new GoogleGenAI({ apiKey });
         // Gọi một request siêu nhẹ để test key
         await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: modelName,
             contents: 'ping',
         });
         return true;
