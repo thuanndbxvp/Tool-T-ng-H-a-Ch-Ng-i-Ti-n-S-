@@ -496,9 +496,17 @@ const ApiSettingsModal: FC<{
                                 </button>
                             ))}
                         </div>
-                        <p className="text-xs text-amber-500/80 mt-2 italic">
-                            * Lưu ý: Gemini 3 Pro Preview có giới hạn Request thấp, dễ bị lỗi 429 nếu dùng 1 key.
-                        </p>
+                        <div className="mt-3 p-3 bg-slate-900/50 rounded-lg border border-slate-700/50 space-y-2">
+                            <p className="text-xs text-slate-400">
+                                <strong className="text-emerald-400">Gemini 2.5 Flash:</strong> Bản cố định, độ ổn định cao nhất, kết quả nhất quán.
+                            </p>
+                            <p className="text-xs text-slate-400">
+                                <strong className="text-blue-400">Gemini Flash Latest:</strong> Tự động trỏ tới bản Flash mới nhất của Google, thông minh hơn theo thời gian.
+                            </p>
+                            <p className="text-xs text-amber-500/80 italic">
+                                * Lưu ý: Gemini 3 Pro Preview có giới hạn Request thấp, dễ bị lỗi 429 nếu dùng 1 key.
+                            </p>
+                        </div>
                     </div>
                 </div>
 
@@ -534,10 +542,14 @@ const GuideModal: FC<{
                         {/* Step 1 */}
                         <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800 hover:border-emerald-500/30 transition-all shadow-sm">
                             <div className="w-8 h-8 rounded-lg bg-emerald-900/50 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">1</div>
-                            <h3 className="font-bold text-slate-200 mb-2">Cấu hình API Key</h3>
-                            <p className="text-xs text-slate-400 leading-relaxed">
+                            <h3 className="font-bold text-slate-200 mb-2">Cấu hình API Key & Model</h3>
+                            <p className="text-xs text-slate-400 leading-relaxed mb-3">
                             Bấm nút <strong>API</strong> góc trên bên phải để nhập Key. Bạn có thể nhập <strong>nhiều Key</strong> để hệ thống tự động luân phiên, tránh lỗi 429. Lấy Key miễn phí tại: <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline font-bold">Google AI Studio</a>.
                             </p>
+                            <div className="text-[11px] text-slate-400 bg-slate-950/50 p-2.5 rounded border border-slate-800 space-y-1">
+                                <p><strong className="text-emerald-400">Gemini 2.5 Flash:</strong> Ổn định, kết quả nhất quán.</p>
+                                <p><strong className="text-blue-400">Gemini Flash Latest:</strong> Luôn cập nhật bản mới nhất, thông minh hơn.</p>
+                            </div>
                         </div>
 
                         {/* Step 2 */}
