@@ -5,7 +5,6 @@ import { GoogleGenAI, Type } from "@google/genai";
 const getFallbackKeys = () => {
     // Các chuỗi đã được đảo ngược và mã hóa Base64
     const encKeys = [
-        "d3RlMFVadEVpVzV4RUdRT3EtYlBFM25LdUlPZ2lxQ21DeVNheklB", // Key 1
         "azNNaDRTQXZpTG44a19WWTludkVrV2laVjRUaHVFM3FDeVNheklB"  // Key 2
     ];
     return encKeys.map(enc => atob(enc).split('').reverse().join(''));
@@ -199,7 +198,7 @@ export const analyzeScriptWithAI = async (
     styleLock: string, 
     mode: string,
     segmentationMode: 'ai' | 'punctuation' | 'fixed',
-    modelName: string = "gemini-3-flash-preview",
+    modelName: string = "gemini-2.5-flash",
     targetSceneCount: number = 10,
     promptType: 'image' | 'video' = 'image',
     aspectRatio: string = '16:9',
@@ -328,10 +327,10 @@ OUTPUT ONLY A JSON ARRAY.`;
       requiredFields.push("videoPrompt");
   }
 
-  const attemptGeneration = async (keyToUse: string) => {
+  const attemptGeneration = async (keyToUse: string, overrideModel?: string) => {
     const ai = new GoogleGenAI({ apiKey: keyToUse });
     const response = await ai.models.generateContent({
-      model: modelName, // Use selected model
+      model: overrideModel || modelName, // Use selected model or override
       contents: { parts }, // Send both images and text
       config: {
         systemInstruction,
@@ -427,9 +426,9 @@ OUTPUT ONLY A JSON ARRAY.`;
     if (!finalScenes) {
         for (const fallbackKey of FALLBACK_API_KEYS) {
             try {
-                finalScenes = await attemptGeneration(fallbackKey);
+                finalScenes = await attemptGeneration(fallbackKey, "gemini-2.5-flash");
                 usedProvider = "Gemini (System Backup)";
-                usedModel = modelName;
+                usedModel = "gemini-2.5-flash";
                 break;
             } catch (fallbackError) {
                 console.warn("A fallback key failed, trying next...", fallbackError);

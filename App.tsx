@@ -40,10 +40,10 @@ type AspectRatio = '16:9' | '9:16' | '1:1';
 
 // Models
 const MODELS = [
-    { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash (Nhanh & Ổn định - Khuyên dùng)', recommended: true },
-    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Tiết kiệm token)', recommended: false },
+    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Nhanh, Ổn định, Tiết kiệm - Khuyên dùng)', recommended: true },
+    { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro (Tư duy phức tạp, Phân cảnh tốt nhất)', recommended: false },
+    { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash (Nhanh & Ổn định)', recommended: false },
     { id: 'gemini-flash-latest', name: 'Gemini Flash Latest (Bản ổn định nhất)', recommended: false },
-    { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro (Tư duy phức tạp - Dễ bị giới hạn)', recommended: false },
 ];
 
 // Toast Types
@@ -522,13 +522,13 @@ const ApiSettingsModal: FC<{
                         </div>
                         <div className="mt-3 p-3 bg-slate-900/50 rounded-lg border border-slate-700/50 space-y-2">
                             <p className="text-xs text-slate-400">
-                                <strong className="text-emerald-400">Gemini 2.5 Flash:</strong> Bản cố định, độ ổn định cao nhất, kết quả nhất quán.
+                                <strong className="text-emerald-400">Gemini 2.5 Flash:</strong> Nhanh, ổn định, tiết kiệm token. Phù hợp cho hầu hết các kịch bản thông thường. Khuyên dùng.
                             </p>
                             <p className="text-xs text-slate-400">
-                                <strong className="text-blue-400">Gemini Flash Latest:</strong> Tự động trỏ tới bản Flash mới nhất của Google, thông minh hơn theo thời gian.
+                                <strong className="text-blue-400">Gemini 3.1 Pro:</strong> Tư duy phức tạp, phân tích bối cảnh và tạo prompt chi tiết nhất. Khuyên dùng cho kịch bản khó.
                             </p>
                             <p className="text-xs text-amber-500/80 italic">
-                                * Lưu ý: Gemini 3 Pro Preview có giới hạn Request thấp, dễ bị lỗi 429 nếu dùng 1 key.
+                                * Lưu ý: Các bản Pro có giới hạn Request thấp hơn bản Flash, có thể gặp lỗi 429 nếu dùng liên tục với 1 key.
                             </p>
                         </div>
                     </div>
