@@ -379,9 +379,17 @@ const ApiSettingsModal: FC<{
     setApiKeys: (keys: ApiKeyData[]) => void;
     selectedModel: string;
     setSelectedModel: (model: string) => void;
-}> = ({ isOpen, onClose, apiKeys, setApiKeys, selectedModel, setSelectedModel }) => {
+    key4uKey: string;
+    setKey4uKey: (key: string) => void;
+}> = ({ isOpen, onClose, apiKeys, setApiKeys, selectedModel, setSelectedModel, key4uKey, setKey4uKey }) => {
     const [newKey, setNewKey] = useState('');
     const [isValidating, setIsValidating] = useState(false);
+    const [activeTab, setActiveTab] = useState<'gemini' | 'key4u'>('gemini');
+    const [tempKey4u, setTempKey4u] = useState(key4uKey || '');
+
+    useEffect(() => {
+        setTempKey4u(key4uKey);
+    }, [key4uKey]);
 
     if (!isOpen) return null;
 
@@ -430,10 +438,26 @@ const ApiSettingsModal: FC<{
                     <KeyIcon className="h-6 w-6 text-emerald-400" />
                     Quản lý API Key & Model
                 </h3>
+
+                <div className="flex border-b border-slate-700 mb-6">
+                    <button
+                        onClick={() => setActiveTab('gemini')}
+                        className={`pb-2 px-4 text-sm font-bold transition-colors ${activeTab === 'gemini' ? 'text-emerald-400 border-b-2 border-emerald-400' : 'text-slate-400 hover:text-slate-300'}`}
+                    >
+                        Gemini API
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('key4u')}
+                        className={`pb-2 px-4 text-sm font-bold transition-colors ${activeTab === 'key4u' ? 'text-emerald-400 border-b-2 border-emerald-400' : 'text-slate-400 hover:text-slate-300'}`}
+                    >
+                        Key4U
+                    </button>
+                </div>
                 
-                <div className="space-y-6">
-                     <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Quản lý API Key</label>
+                {activeTab === 'gemini' && (
+                    <div className="space-y-6">
+                         <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">Quản lý API Key</label>
                         <div className="flex gap-2 mb-4">
                             <input
                                 type="password"
@@ -509,6 +533,47 @@ const ApiSettingsModal: FC<{
                         </div>
                     </div>
                 </div>
+                )}
+
+                {activeTab === 'key4u' && (
+                    <div className="space-y-6">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">Cấu hình Key4U API</label>
+                            <div className="flex gap-2 mb-4">
+                                <input
+                                    type="password"
+                                    value={tempKey4u}
+                                    onChange={(e) => setTempKey4u(e.target.value)}
+                                    placeholder="Nhập API Key của Key4U (sk-...)"
+                                    className="flex-1 bg-slate-800 border border-slate-700 p-2.5 rounded-md focus:ring-2 focus:ring-emerald-500 text-white text-sm"
+                                />
+                                <button
+                                    onClick={() => {
+                                        setKey4uKey(tempKey4u);
+                                        localStorage.setItem('sbgen_key4u_key', tempKey4u);
+                                        alert('Đã lưu Key4U API Key!');
+                                    }}
+                                    className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-md text-sm font-bold min-w-[100px]"
+                                >
+                                    Lưu Key
+                                </button>
+                            </div>
+                            <div className="mt-4 p-4 bg-slate-900/50 rounded-lg border border-slate-700/50 space-y-3">
+                                <h4 className="text-sm font-bold text-emerald-400">Hướng dẫn lấy Key4U API:</h4>
+                                <ol className="list-decimal list-inside text-xs text-slate-400 space-y-2">
+                                    <li>Truy cập và đăng nhập vào hệ thống Key4U.</li>
+                                    <li>Tạo API Key mới định dạng <code className="bg-slate-800 px-1 rounded text-emerald-300">sk-...</code></li>
+                                    <li>
+                                        Xem hướng dẫn chi tiết tại:{' '}
+                                        <a href="https://docs.key4u.shop/doc-2033270" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+                                            https://docs.key4u.shop/doc-2033270
+                                        </a>
+                                    </li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div className="mt-8 flex justify-end">
                     <button onClick={onClose} className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-lg font-bold text-sm transition-colors">
@@ -980,6 +1045,7 @@ const App: FC = () => {
   // API & Settings State
   const [apiKeys, setApiKeys] = useState<ApiKeyData[]>([]);
   const [apiKey, setApiKey] = useState<string>(''); // Deprecated logic mostly, kept for legacy if needed or simple single key
+  const [key4uKey, setKey4uKey] = useState<string>('');
   const [selectedModel, setSelectedModel] = useState<string>('gemini-3-flash-preview');
   const [showApiModal, setShowApiModal] = useState(false);
   
@@ -1005,6 +1071,7 @@ const App: FC = () => {
     // Check old key
     const oldKey = localStorage.getItem('sbgen_api_key');
     const storedKeysStr = localStorage.getItem('sbgen_api_keys');
+    const savedKey4u = localStorage.getItem('sbgen_key4u_key');
     
     let keys: ApiKeyData[] = [];
     if (storedKeysStr) {
@@ -1017,6 +1084,10 @@ const App: FC = () => {
         localStorage.setItem('sbgen_api_keys', JSON.stringify(keys));
     }
     setApiKeys(keys);
+
+    if (savedKey4u) {
+        setKey4uKey(savedKey4u);
+    }
   }, []);
 
   // Save sessions helper
@@ -1161,7 +1232,8 @@ const App: FC = () => {
               targetSceneCount,
               promptType,
               aspectRatio,
-              enableAspectRatio
+              enableAspectRatio,
+              key4uKey
           );
           
           const newPrompts = results.map((item: any, index: number) => ({
@@ -1211,6 +1283,8 @@ const App: FC = () => {
             setApiKeys={setApiKeys}
             selectedModel={selectedModel}
             setSelectedModel={setSelectedModel}
+            key4uKey={key4uKey}
+            setKey4uKey={setKey4uKey}
         />
         
         <LibraryModal 

@@ -28,7 +28,7 @@ export const validateApiKey = async (apiKey: string, modelName: string = 'gemini
     }
 };
 
-export const standardizeScriptWithAI = async (script: string, apiKey: string, modelName: string = "gemini-3-flash-preview"): Promise<string> => {
+export const standardizeScriptWithAI = async (script: string, apiKey: string, modelName: string = "gemini-3-flash-preview", key4uKey?: string): Promise<string> => {
   // System Instruction được cập nhật để đảm bảo tính toàn vẹn nội dung
   const systemInstruction = `You are a strict text cleaning engine.
 Your GOAL: Remove non-spoken formatting and metadata without changing a single spoken word.
@@ -60,7 +60,41 @@ Output ONLY the cleaned text.`;
     return text.trim();
   };
 
+  const attemptKey4UGeneration = async (key: string) => {
+      const response = await fetch('https://api.key4u.shop/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${key}`
+          },
+          body: JSON.stringify({
+              model: 'gpt-4o-mini',
+              messages: [
+                  { role: 'system', content: systemInstruction },
+                  { role: 'user', content: script }
+              ],
+              temperature: 0.7
+          })
+      });
+
+      if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`Key4U API Error: ${response.status} - ${errText}`);
+      }
+
+      const data = await response.json();
+      return data.choices[0].message.content.trim();
+  };
+
   try {
+    if (key4uKey) {
+        try {
+            return await attemptKey4UGeneration(key4uKey);
+        } catch (error) {
+            console.warn("Key4U API failed for standardization, falling back to Gemini...", error);
+        }
+    }
+
     if (apiKey) {
       try {
         return await attemptGeneration(apiKey);
@@ -161,7 +195,8 @@ export const analyzeScriptWithAI = async (
     targetSceneCount: number = 10,
     promptType: 'image' | 'video' = 'image',
     aspectRatio: string = '16:9',
-    enableAspectRatio: boolean = false
+    enableAspectRatio: boolean = false,
+    key4uKey?: string
 ): Promise<any[]> => {
   // Construct Segmentation Instruction based on mode
   let segmentationInstruction = "";
@@ -310,10 +345,64 @@ OUTPUT ONLY A JSON ARRAY.`;
     return JSON.parse(text.trim());
   };
 
+  const attemptKey4UGeneration = async (key: string) => {
+      const messages: any[] = [
+          { role: 'system', content: systemInstruction }
+      ];
+
+      const userContent: any[] = [];
+      if (referenceImages && referenceImages.length > 0) {
+          referenceImages.forEach(img => {
+              userContent.push({
+                  type: "image_url",
+                  image_url: {
+                      url: `data:${img.mimeType};base64,${img.base64}`
+                  }
+              });
+          });
+          userContent.push({ type: "text", text: "REFER TO THE ABOVE IMAGES FOR VISUAL STYLE (Color, Lighting, Texture)." });
+      }
+      userContent.push({ type: "text", text: script });
+
+      messages.push({ role: 'user', content: userContent });
+
+      const response = await fetch('https://api.key4u.shop/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${key}`
+          },
+          body: JSON.stringify({
+              model: 'gpt-4o-mini',
+              messages: messages,
+              temperature: 0.7
+          })
+      });
+
+      if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`Key4U API Error: ${response.status} - ${errText}`);
+      }
+
+      const data = await response.json();
+      let text = data.choices[0].message.content;
+      text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      return JSON.parse(text);
+  };
+
   let finalScenes: any[] | null = null;
 
   try {
-    if (apiKey) {
+    if (key4uKey) {
+        try {
+            finalScenes = await attemptKey4UGeneration(key4uKey);
+            console.log("Successfully used Key4U API");
+        } catch (error) {
+            console.warn("Key4U API failed, falling back to Gemini...", error);
+        }
+    }
+
+    if (!finalScenes && apiKey) {
       try {
         finalScenes = await attemptGeneration(apiKey);
       } catch (error) {
