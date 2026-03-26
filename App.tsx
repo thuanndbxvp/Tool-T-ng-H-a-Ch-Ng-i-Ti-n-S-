@@ -1221,6 +1221,10 @@ const App: FC = () => {
              activeStylePrompt = selectedStyleObj ? selectedStyleObj.prompt : "";
           }
 
+          const expectedProvider = key4uKey ? 'Key4U' : 'Gemini';
+          const expectedModel = key4uKey ? 'gpt-4o-mini' : selectedModel;
+          addToast('info', 'Đang phân cảnh...', `Sử dụng ${expectedProvider} (${expectedModel})`);
+
           const results = await analyzeScriptWithAI(
               scenario,
               refImagesForService,
@@ -1236,7 +1240,7 @@ const App: FC = () => {
               key4uKey
           );
           
-          const newPrompts = results.map((item: any, index: number) => ({
+          const newPrompts = results.scenes.map((item: any, index: number) => ({
               id: Date.now() + index,
               phase: item.phase,
               imagePrompt: item.imagePrompt, // might be undefined if promptType=video
@@ -1246,7 +1250,7 @@ const App: FC = () => {
           
           setPrompts(newPrompts);
           saveSession(newPrompts, scriptFileName || "Manual Scenario"); // Auto-save to library
-          addToast('success', 'Thành công', `Đã tạo ${newPrompts.length} cảnh & Lưu vào Thư viện.`);
+          addToast('success', 'Thành công', `Đã tạo ${newPrompts.length} cảnh bằng ${results.provider} (${results.model}).`);
           
       } catch (error: any) {
           addToast('error', 'Lỗi tạo nội dung', error.message);

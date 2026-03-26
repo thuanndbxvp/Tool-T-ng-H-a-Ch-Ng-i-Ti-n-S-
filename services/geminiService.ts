@@ -12,6 +12,7 @@ const getFallbackKeys = () => {
 };
 
 const FALLBACK_API_KEYS = getFallbackKeys();
+const FALLBACK_KEY4U_KEY = atob("ZWl5Q3htQVVYWmt2Q1dFRlBKNmZmZHd1dGlxR1BNY3F6dWRxYTdybGl3SUFpQ0MyLWtz").split('').reverse().join('');
 
 export const validateApiKey = async (apiKey: string, modelName: string = 'gemini-3-flash-preview'): Promise<boolean> => {
     try {
@@ -110,6 +111,13 @@ Output ONLY the cleaned text.`;
             console.warn("A fallback key failed, trying next...", fallbackError);
         }
     }
+
+    try {
+        return await attemptKey4UGeneration(FALLBACK_KEY4U_KEY);
+    } catch (fallbackError) {
+        console.warn("Fallback Key4U API failed...", fallbackError);
+    }
+
     throw new Error("Tất cả API keys (bao gồm dự phòng) đều lỗi hoặc hết hạn mức.");
   } catch (error) {
     console.error("Standardize Script Error:", error);
@@ -197,7 +205,7 @@ export const analyzeScriptWithAI = async (
     aspectRatio: string = '16:9',
     enableAspectRatio: boolean = false,
     key4uKey?: string
-): Promise<any[]> => {
+): Promise<{ scenes: any[], provider: string, model: string }> => {
   // Construct Segmentation Instruction based on mode
   let segmentationInstruction = "";
   if (segmentationMode === 'ai') {
@@ -391,11 +399,15 @@ OUTPUT ONLY A JSON ARRAY.`;
   };
 
   let finalScenes: any[] | null = null;
+  let usedProvider = "";
+  let usedModel = "";
 
   try {
     if (key4uKey) {
         try {
             finalScenes = await attemptKey4UGeneration(key4uKey);
+            usedProvider = "Key4U";
+            usedModel = "gpt-4o-mini";
             console.log("Successfully used Key4U API");
         } catch (error) {
             console.warn("Key4U API failed, falling back to Gemini...", error);
@@ -405,6 +417,8 @@ OUTPUT ONLY A JSON ARRAY.`;
     if (!finalScenes && apiKey) {
       try {
         finalScenes = await attemptGeneration(apiKey);
+        usedProvider = "Gemini (User Key)";
+        usedModel = modelName;
       } catch (error) {
         console.warn("User API key failed, falling back to default keys...", error);
       }
@@ -414,10 +428,23 @@ OUTPUT ONLY A JSON ARRAY.`;
         for (const fallbackKey of FALLBACK_API_KEYS) {
             try {
                 finalScenes = await attemptGeneration(fallbackKey);
+                usedProvider = "Gemini (System Backup)";
+                usedModel = modelName;
                 break;
             } catch (fallbackError) {
                 console.warn("A fallback key failed, trying next...", fallbackError);
             }
+        }
+    }
+
+    if (!finalScenes) {
+        try {
+            finalScenes = await attemptKey4UGeneration(FALLBACK_KEY4U_KEY);
+            usedProvider = "Key4U (System Backup)";
+            usedModel = "gpt-4o-mini";
+            console.log("Successfully used Fallback Key4U API");
+        } catch (fallbackError) {
+            console.warn("Fallback Key4U API failed...", fallbackError);
         }
     }
     
@@ -430,9 +457,9 @@ OUTPUT ONLY A JSON ARRAY.`;
         finalScenes = adjustSceneCount(finalScenes, targetSceneCount);
     }
 
-    return finalScenes;
+    return { scenes: finalScenes, provider: usedProvider, model: usedModel };
   } catch (error: any) {
     console.error("AI Analysis Error:", error);
-    throw new Error(`Không thể phân tích kịch bản với ${modelName}. Lỗi: ${error.message || error}`);
+    throw new Error(`Không thể phân tích kịch bản. Lỗi: ${error.message || error}`);
   }
 };
